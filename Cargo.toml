@@ -7,14 +7,14 @@ version = "0.0.0"
 edition = "2024"
 license = "AGPL-3.0-only"
 authors = ["VaultScribe Limited Liability Company"]
-# Not published yet. Remove this line only on purpose, when the first release is ready.
+# Not published yet; remove this line when the first release goes out.
 publish = false
-# TODO(owner): add `repository` and `homepage` once the public repository exists (cargo warns that they are missing).
+repository = "https://github.com/AlpharomeroJL/pqbind"
+homepage = "https://github.com/AlpharomeroJL/pqbind"
 readme = "README.md"
 keywords = ["post-quantum", "ml-dsa", "hybrid-signature", "quic", "tls"]
 categories = ["cryptography"]
-# Verified: the full test suite passes on Rust 1.94.1, and `cargo check --workspace --all-features --offline --locked` on 1.94.1 and 1.99.0, the only stable toolchains
-# installed where this was checked. Older versions were not tried, so this is the lowest version known to work, not a proven floor.
+# The lowest toolchain the test suite runs on (1.94.1); the workspace also checks clean on 1.99.0. Older versions have not been tried.
 rust-version = "1.94"
 
 [workspace.lints.rust]
