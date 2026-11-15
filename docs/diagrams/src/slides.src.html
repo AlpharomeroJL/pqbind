@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pqbind architecture</title>
+<meta name="viewport" content="width=1280">
+<style>
+/*{{FONTS}}*/
+/*{{TOKENS}}*/
+@page { size: 1280px 720px; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--surface); color: var(--ink-1); font-family: var(--sans); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { position: relative; width: 1280px; height: 720px; overflow: hidden; background: var(--surface); padding: 24px 56px 0; page-break-after: always; break-after: page; display: flex; flex-direction: column; }
+.page:last-child { page-break-after: auto; break-after: auto; }
+.top { display: flex; align-items: center; justify-content: space-between; height: 30px; flex: none; }
+.brand { display: flex; align-items: center; gap: 9px; color: var(--ink-1); font-weight: 600; font-size: 17px; letter-spacing: .01em; }
+.brand svg { width: 26px; height: 26px; display: block; }
+.lbl { color: var(--accent-ink); font-weight: 500; font-size: 15px; }
+h1 { font-size: 40px; line-height: 1.12; font-weight: 700; letter-spacing: -.015em; margin-top: 14px; flex: none; }
+.body { flex: 1 1 auto; min-height: 0; margin-top: 18px; display: flex; flex-direction: column; gap: 14px; }
+.foot { flex: none; height: 30px; display: flex; align-items: center; justify-content: flex-end; color: var(--ink-3); font-size: 14px; }
+.layout { display: flex; gap: 24px; flex: 1 1 auto; min-height: 0; }
+.dia { flex: 1 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+.spec { flex: 0 0 312px; display: flex; flex-direction: column; min-height: 0; }
+.sr { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; gap: 1px; border-top: 1px solid var(--line); padding: 5px 0; }
+.sr:first-child { border-top: none; }
+.sr .k { font-size: 14px; font-weight: 600; color: var(--accent-ink); line-height: 1.2; }
+.sr .v { font-size: 17px; line-height: 1.26; color: var(--ink-1); }
+.sr code { font-family: var(--mono); font-size: 15px; }
+svg.uml { display: block; width: 100%; height: auto; }
+svg.uml text.h { paint-order: stroke; stroke: var(--paper); stroke-width: 5px; stroke-linejoin: round; }
+@media screen {
+  body { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 24px 0; }
+  body.one { padding: 0; gap: 0; display: block; }
+  body.one .page { display: none; }
+  body.one .page.on { display: flex; }
+}
+</style>
+</head>
+<body>
+<!--{{SLIDES}}-->
+<script>
+(function () {
+  var m = /^#p(\d+)$/.exec(location.hash);
+  if (!m) return;
+  document.body.classList.add('one');
+  var pages = document.querySelectorAll('.page');
+  var el = pages[parseInt(m[1], 10) - 1];
+  if (el) el.classList.add('on');
+})();
+</script>
+</body>
+</html>

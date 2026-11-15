@@ -1,0 +1,27 @@
+/* The dark design tokens the pqbind diagrams use, copied from the briefing deck's theme. */
+:root {
+  --sans: 'DM Sans', 'Segoe UI', system-ui, -apple-system, 'Noto Sans', 'DejaVu Sans', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, 'SF Mono', Menlo, 'DejaVu Sans Mono', monospace;
+  --r-sm: 5px; --r-md: 7px; --r-lg: 10px; --r-xl: 14px;
+}
+
+:root {
+  --surface: #0B1410;
+  --paper: #121D17;
+  --raised: #182620;
+  --raised-2: #1D2E26;
+  --line: #22322A;
+  --line-2: #2E4137;
+  --ink-1: #E6EEE8;
+  --ink-2: #A7B6AC;
+  --ink-3: #8EA094;
+  --ink-4: #4E5F55;
+  --accent: #36B97A;
+  --accent-ink: #7ED8A9;
+  --accent-soft: #17392B;
+  --accent-line: #2A5A44;
+  --amber: #E2B55A;
+  --amber-soft: #33290F;
+  --rec: #E26A5B;
+  --rec-soft: #331B17;
+}
