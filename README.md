@@ -25,6 +25,19 @@ both key pins, using a hybrid Ed25519 and ML-DSA-87 key. A signature verifies on
   the other.
 - No post-quantum certificates are needed.
 
+## Documentation
+
+| | |
+|---|---|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The crates and layers, the data flow of one connection, and a map of every source file |
+| [docs/REVIEW.md](docs/REVIEW.md) | A guide for an independent reviewer: what to read first, how to run everything, and the questions that most need an answer |
+| [docs/WRITEUP.md](docs/WRITEUP.md) | An unpublished draft article on why this exists |
+| [DESIGN.md](DESIGN.md) | What the code does, and which choices are unreviewed |
+| [THREAT_MODEL.md](THREAT_MODEL.md) | What pqbind is meant to stop, and what it is not |
+| [SECURITY.md](SECURITY.md) | What has been checked, and how to report a problem |
+
+API documentation is in the rustdoc of the two library crates (`cargo doc --workspace --no-deps --all-features --open`).
+
 ## Try it
 
 ```text
@@ -55,6 +68,17 @@ pqbind verify 127.0.0.1:4433 --pin <the server pin serve printed> --identity cli
 `serve` listens on loopback only unless you pass `--allow-non-loopback`. `verify` exits 0 when the server proved the pinned key,
 1 when it refused or could not prove it, and 2 for any other failure.
 
+### A runnable example for developers
+
+One file, heavily commented, shows the whole flow in a single process: two identities, enrollment and pinning, a real QUIC
+connection on 127.0.0.1, the proof exchange, then one line of application data each way on the same streams.
+
+```text
+cargo run -p pqbind --example quinn_client_server --features quinn
+```
+
+The source is [`crates/pqbind/examples/quinn_client_server.rs`](crates/pqbind/examples/quinn_client_server.rs).
+
 ### `probe`: which post-quantum key exchange does a host accept?
 
 ```text
@@ -63,35 +87,70 @@ pqbind probe cloudflare.com google.com
 
 For each host it tries one key exchange group at a time (X25519MLKEM768, SecP256r1MLKEM768, SecP384r1MLKEM1024, pure MLKEM1024
 and two classical baselines) and reports the verdict: PQ capable, no post-quantum, PQ intolerant (a heuristic), unreachable or
-inconclusive. **It does not validate certificates**; it only tests the key exchange. Exit code 0 means every host is PQ capable.
-An example from the author's machine on 2026-11-15 (results depend on the host and your network):
+inconclusive. **It does not validate certificates**; it only tests the key exchange. The exit code is 0 when every host is PQ
+capable, 1 when a host has no post-quantum key exchange or is suspected PQ intolerant, and 2 when a host is unreachable or the
+result is inconclusive (2 wins over 1). The verdict lines below are from the author's machine on 2026-11-15; results depend on the
+host and your network:
 
 ```text
-cloudflare.com   verdict: PQ capable (X25519MLKEM768)
-google.com       verdict: PQ capable (X25519MLKEM768, MLKEM1024)
+cloudflare.com
+  verdict: PQ capable (X25519MLKEM768)
+google.com
+  verdict: PQ capable (X25519MLKEM768, MLKEM1024)
 ```
 
 ## Use it as a library
 
-A sketch, not compiled documentation (see `crates/pqbind/tests/quinn_loopback.rs` for working code):
+The handshake is generic over a frame channel, so it needs no transport at all to try. This snippet is compiled and run as a
+doctest in the `pqbind` crate docs (`crates/pqbind/src/lib.rs`), over an in-memory pipe. A real transport adapter reads the exporter
+value from the live connection; the example above does that over QUIC. The snippet uses `?`, so run it inside an async function that
+returns `Result<_, pqbind::Error>` (the doctest wraps it that way).
 
 ```rust
-// Both ends: a hybrid identity, and the transport identity the transport already authenticated.
-let me = pqbind::HybridIdentity::generate()?;
+use pqbind::{Binding, Enrollment, HybridIdentity, MemoryRegistry, PeerId, StreamFrames, accept, connect};
 
-// Client: after the QUIC handshake, open a stream, then prove and check.
-let mut io = pqbind::adapters::quinn::open(&connection, b"my-app/v1").await?;
-let server_id = pqbind::adapters::quinn::peer_id(&connection);
-let established = pqbind::connect(&mut io, &me, &pqbind::PeerId::anonymous(), &server_id, &server_pin).await?;
-let (reader, writer) = io.into_parts(); // application data from here on
+// Each end makes a hybrid identity.
+let client = HybridIdentity::generate()?;
+let server = HybridIdentity::generate()?;
 
-// Server: accept, with the registry of enrolled clients.
-let mut io = pqbind::adapters::quinn::accept(&connection, b"my-app/v1").await?;
-let client_id = pqbind::adapters::quinn::peer_id(&connection);
-let established = pqbind::accept(&mut io, &me, &own_id, &client_id, &registry).await?;
+// Enrollment happens before any connection, outside pqbind. The server enrolls the client's public key, and the client keeps the
+// pin (the SHA-384 of the whole public key) of the server. This client presents no transport identity, so it is anonymous.
+let registry = MemoryRegistry::new();
+registry.enroll(Enrollment { key: client.public(), peer_id: PeerId::anonymous(), enrolled_at_unix_millis: 0 });
+let server_pin = server.pin();
+
+// The transport. An adapter would hand each end a `StreamFrames` over the connection's stream, with the exporter value it read.
+let (client_pipe, server_pipe) = tokio::io::duplex(64 * 1024);
+let exporter = [7_u8; 64];
+let (client_read, client_write) = tokio::io::split(client_pipe);
+let (server_read, server_write) = tokio::io::split(server_pipe);
+let mut client_io = StreamFrames::new(client_read, client_write, Binding::new(b"my-app/v1", exporter)?);
+let mut server_io = StreamFrames::new(server_read, server_write, Binding::new(b"my-app/v1", exporter)?);
+
+// The transport identity of the server, as the transport authenticated it (for TLS, the hash of its certificate).
+let server_id = PeerId::new(b"the server's transport identity".to_vec())?;
+
+// Both ends run their half. Neither may send application data until its call returns `Ok`.
+let anonymous = PeerId::anonymous();
+let (from_client, from_server) = tokio::join!(
+    connect(&mut client_io, &client, &anonymous, &server_id, &server_pin),
+    accept(&mut server_io, &server, &server_id, &anonymous, &registry),
+);
+assert_eq!(from_client?.peer_key(), &server.public()); // the client now knows it talks to the pinned server
+assert_eq!(from_server?.peer_key(), &client.public()); // the server now knows it talks to an enrolled client
 ```
 
-Neither end may send application data until its call returns `Ok`.
+Three things to know:
+
+- Neither end may send application data until its call returns `Ok`, and an application must refuse a connection that does not
+  complete the handshake. pqbind cannot enforce that for you.
+- The frame timeouts use `tokio::time`, so the tokio runtime must have its time driver enabled.
+- The lattice signature code keeps large buffers on the stack: ML-DSA-87 key expansion alone needs about 1 MiB in a debug build and
+  about 0.5 MiB in a release build (measured on Windows; see [Known limitations](#known-limitations)). Do not call it on a thread
+  with a smaller stack. An ordinary Windows main thread has 1 MiB.
+
+The transport adapters are behind Cargo features: `quinn`, `rustls` (TLS 1.3 over TCP) and `iroh`. Each gives you the frames over one
+stream and the transport identity of the remote end.
 
 ## Trust model
 
@@ -103,10 +162,12 @@ guarantee; see [THREAT_MODEL.md](THREAT_MODEL.md) and [DESIGN.md](DESIGN.md).
 
 | Path | What it is |
 |---|---|
-| `crates/pqbind-crypto` | Hybrid Ed25519 + ML-DSA-87 signature, HKDF-SHA384, SHA-384. Small on purpose, so it can be reviewed alone. |
+| `crates/pqbind-crypto` | Hybrid Ed25519 + ML-DSA-87 signature, HKDF-SHA384, SHA-384 and HMAC-SHA-384. Small on purpose, so it can be reviewed alone. |
 | `crates/pqbind` | Identity and pin, exporter binding, proof, trust registry, frames and the handshake |
 | `crates/pqbind/src/adapters` | quinn, rustls (TLS 1.3 over TCP) and iroh adapters, each behind its own Cargo feature |
+| `crates/pqbind/examples` | `quinn_client_server`, the runnable teaching example |
 | `crates/pqbind-cli` | The `pqbind` command: `demo`, `keygen`, `serve`, `verify`, `probe` |
+| `docs/` | Architecture, the reviewer's guide and the draft article |
 
 ## Tests
 
@@ -114,10 +175,12 @@ guarantee; see [THREAT_MODEL.md](THREAT_MODEL.md) and [DESIGN.md](DESIGN.md).
 cargo test --workspace --all-features
 ```
 
-About 160 tests, including: unit tests; NIST ACVP known answers for ML-DSA-87; attack tests that give the attacker one half of a
+Over 200 tests (the exact count changes; a few ignored regeneration helpers are not counted), including: unit tests; NIST ACVP known answers for ML-DSA-87; attack tests that give the attacker one half of a
 key, each with a positive control that proves the forging helper is itself correct; replay, relay and malformed-frame cases; random
-and near-valid hostile input; real QUIC, TLS and iroh connections on 127.0.0.1; and a guard that fails if a primitive constant
-or an unlisted dependency appears in `pqbind-crypto`. The tests bind sockets on loopback only.
+and near-valid hostile input; real QUIC, TLS and iroh connections on 127.0.0.1; known-answer vectors that pin the wire format (made
+by this same code, so they are not independent evidence); two doctests; and a guard that fails if a primitive
+constant or an unlisted dependency appears in `pqbind-crypto`. The tests bind sockets on loopback only. The reviewer's guide,
+[docs/REVIEW.md](docs/REVIEW.md), says what each group of tests claims.
 
 ## Security status
 
@@ -129,9 +192,12 @@ FIPS validated. See [SECURITY.md](SECURITY.md).
 
 - Only Windows has been tested. The Unix file-permission branch of `keygen` has never been run.
 - The iroh adapter was exercised on direct IPv4 loopback only, not through relays or IPv6.
-- The command line runs on large stacks because the demo overflowed the default Windows main-thread stack in a debug build.
-  Stack use of ML-DSA-87 in other builds has not been measured.
-- The minimum supported Rust version is not determined; the code has been tested on Rust 1.99.
+- **Stack use of ML-DSA-87** (measured on Windows 11 with Rust 1.94.1, one operation alone on a fresh thread; the smallest stack that
+  worked, found with `crates/pqbind-cli/examples/stack_probe.rs`): key expansion 960 KiB debug and 480 KiB release; signing 288 KiB
+  debug and 144 KiB release; verifying 144 KiB debug and 80 KiB release. The cause is the `ml-dsa` crate's own buffers. The command
+  line runs its commands on a 2 MiB thread and its async workers on 1.25 MiB. Other platforms were not measured.
+- The minimum supported Rust version is not proven. `Cargo.toml` declares 1.94, the lowest version checked, on the only two stable
+  toolchains the author had (1.94.1 and 1.99.0).
 - `keygen` cannot restrict file permissions on Windows with the standard library alone; it says so, and you should restrict the seed
   file yourself.
 

@@ -22,6 +22,8 @@
 //!
 //! Pre-release and unpublished. The design has not been independently reviewed.
 
+#![deny(missing_docs)]
+
 pub mod hash;
 pub mod hybrid;
 pub mod kdf;

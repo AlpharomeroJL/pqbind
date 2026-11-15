@@ -6,6 +6,10 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 publish.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [lints]
 workspace = true
@@ -27,6 +31,10 @@ iroh = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
+
+[[example]]
+name = "quinn_client_server"
+required-features = ["quinn"]
 
 [dev-dependencies]
 proptest = { workspace = true }

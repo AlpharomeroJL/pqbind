@@ -86,7 +86,7 @@ pub struct HybridSigningKey {
 impl ZeroizeOnDrop for HybridSigningKey {}
 
 impl HybridSigningKey {
-    /// The signing key of the 32-byte `seed`, in the suite of the active profile.
+    /// The signing key of the 32-byte `seed`, in the one suite this crate has ([`SignatureSuite::Ed25519MlDsa87`]).
     ///
     /// # Errors
     ///
@@ -142,7 +142,8 @@ impl HybridVerifyingKey {
     /// # Errors
     ///
     /// [`CryptoError::InvalidKeyLength`] for a suite this build does not have or the wrong length, and
-    /// [`CryptoError::Malformed`] when the Ed25519 half is not a point.
+    /// [`CryptoError::Malformed`] when the Ed25519 half is not a point or the ML-DSA half has an all-zero `t1`
+    /// (see [`MlDsaVerifyingKey::from_bytes`]).
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
         let (id, rest) = suite::split_id(bytes).ok_or(CryptoError::InvalidKeyLength)?;
         let suite = SignatureSuite::from_id(id).ok_or(CryptoError::InvalidKeyLength)?;

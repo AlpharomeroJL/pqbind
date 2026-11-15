@@ -19,7 +19,8 @@ that does not rely on classical signatures alone.
 - **Replay of an old proof.** A proof signs the exporter value of one connection, so it does not verify on another.
 - **Reflection.** The two roles sign under different labels and the signed bytes include both peers' identities and both pins, so a
   server's proof cannot be reused as a client's.
-- **A client that pinned the wrong key,** and **a client that was never enrolled.** Both are refused. Demo scenario e.
+- **A client that pinned the wrong key,** and **a client that was never enrolled.** Both are refused. Demo scenario e runs the
+  second. The first is covered by the tests (`handshake_memory.rs` and `iroh_adapter.rs`), not by the demo.
 
 ## What pqbind does not cover
 
@@ -31,6 +32,10 @@ that does not rely on classical signatures alone.
 - **Browsers and ordinary TLS clients.** pqbind needs both ends to run it.
 - **Applications that do not require it.** A peer that skips the pqbind step is unauthenticated by pqbind. The application must
   refuse connections that do not complete the handshake, and must not send application data before it returns `Ok`.
+- **Data sent before the handshake returns.** Anything an application sends before `connect` or `accept` returns `Ok`, including
+  QUIC 0-RTT data if the application turns it on, is not authenticated by pqbind.
+- **Denial of service.** A server verifies a well-formed HELLO before it knows the sender is enrolled, so an unauthenticated peer can
+  make it spend an ML-DSA-87 verification per connection. pqbind has no rate limit or connection cap.
 - **Revocation timing.** A revoked key is refused at the next check the server makes, which depends on the registry the application
   supplies.
 - **Side channels** and implementation faults in the underlying libraries. The proofs are deterministic, and the registry lookup is

@@ -13,7 +13,7 @@ the license text before relying on this summary.
 If you want to use pqbind in a closed or proprietary product without publishing that product's source, you need a commercial
 license from **VaultScribe Limited Liability Company**. Terms are set by a written agreement.
 
-To ask about a commercial license, contact: `TODO(owner): add the contact address before publishing`.
+To ask about a commercial license, contact: josefdean@protonmail.com.
 
 ## Contributions
 

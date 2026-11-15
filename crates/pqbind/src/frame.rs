@@ -45,6 +45,9 @@ pub trait FrameIo: Send {
 
 /// Frames over a reader and a writer, with a time limit on every step. Take the streams back with [`StreamFrames::into_parts`] once
 /// the handshake is over, to carry application data on them.
+///
+/// The time limit uses `tokio::time`, so the tokio runtime must have its time driver enabled (`enable_time` or `enable_all`);
+/// without it the first send or receive panics.
 pub struct StreamFrames<R, W> {
     reader: R,
     writer: W,

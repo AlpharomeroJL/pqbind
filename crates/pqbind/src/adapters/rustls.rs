@@ -29,6 +29,9 @@ fn binding_of<D>(connection: &ConnectionCommon<D>, app_label: &[u8]) -> Result<B
     Binding::derive(app_label, |out, label, context| connection.export_keying_material(out, label, Some(context)).map(drop))
 }
 
+/// The frames [`frames`] gives: one reader half and one writer half of a finished TLS stream.
+pub type TlsFrames<IO> = StreamFrames<ReadHalf<TlsStream<IO>>, WriteHalf<TlsStream<IO>>>;
+
 /// Take a finished TLS 1.3 stream, read the exporter value from its session and give frames over its two halves.
 ///
 /// `app_label` is the application label both ends must use. The handshake has completed when the stream exists, so the exporter is
@@ -38,7 +41,7 @@ fn binding_of<D>(connection: &ConnectionCommon<D>, app_label: &[u8]) -> Result<B
 ///
 /// [`Error::Unsupported`] unless the negotiated version is TLS 1.3, [`Error::InvalidInput`] for an empty or over-long label, and
 /// [`Error::Crypto`] when the session gives no exporter value.
-pub fn frames<IO>(stream: TlsStream<IO>, app_label: &[u8]) -> Result<StreamFrames<ReadHalf<TlsStream<IO>>, WriteHalf<TlsStream<IO>>>, Error>
+pub fn frames<IO>(stream: TlsStream<IO>, app_label: &[u8]) -> Result<TlsFrames<IO>, Error>
 where
     IO: AsyncRead + AsyncWrite + Unpin + Send,
 {
