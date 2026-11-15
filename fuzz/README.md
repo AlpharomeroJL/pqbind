@@ -49,15 +49,14 @@ cargo +nightly fuzz run server_hello --fuzz-dir . -s none -- -max_total_time=30
 
 Do not link the whole thunk library: it also defines `malloc`, which then clashes with the C runtime.
 
-## What has been run
+## Smoke run
 
-All five targets were built and each was run for 30 seconds on Windows with the commands above (no sanitizer, coverage guided) on
-2026-11-15. None found a crash or a failed assertion. This is a smoke run, not a campaign: thirty seconds is enough to show the targets
-build, reach the checks they are meant to reach, and hold their assertions on the inputs they found, and it is not evidence that the
-parsers are free of faults. Run them for hours before relying on them, and add the interesting inputs to a checked-in corpus if you
-want regression coverage.
+Each target ran for 30 seconds on Windows on 2026-11-15 with the commands above (no sanitizer, coverage guided). None found a crash
+or a failed assertion. Thirty seconds shows that the targets build, reach the checks they are meant to reach and hold their
+assertions on the inputs they found. It is not evidence that the parsers are free of faults. Run the targets for hours before
+relying on them, and add interesting inputs to a checked-in corpus for regression coverage.
 
-The final lines of each run (executions, coverage in edges and features, and corpus size):
+Executions, coverage (edges as `cov`, features as `ft`) and corpus size at the end of each run:
 
 | Target | Executions in 30 s | `cov` | `ft` | Corpus |
 |---|---|---|---|---|
