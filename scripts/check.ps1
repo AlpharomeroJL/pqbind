@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-pqbind-Commercial
 # Copyright (c) 2026 VaultScribe Limited Liability Company
-# The local gate: the same checks as CI, in order, stopping at the first failure. Run from anywhere.
+# The local gate: the checks, in order, stopping at the first failure. Run from anywhere.
 $ErrorActionPreference = 'Continue'
 Set-Location (Split-Path -Parent $PSScriptRoot)
 

@@ -20,4 +20,4 @@ First release, published to crates.io as `pqbind-crypto`, `pqbind` and `pqbind-c
   `probe` (which key exchange groups a host accepts).
 - Tests for attacks, replay, relay, malformed input and loopback transports, and five cargo-fuzz targets.
 - A dual license: AGPL-3.0-only or a commercial license (see [LICENSING.md](LICENSING.md)).
-- CI for Windows, Linux and macOS, `cargo-deny` and REUSE checks, and the local check scripts in `scripts/`.
+- Local check scripts in `scripts/` that run formatting, lints, tests, `cargo-deny` and the REUSE check.
