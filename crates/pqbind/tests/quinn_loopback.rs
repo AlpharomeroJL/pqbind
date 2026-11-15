@@ -92,7 +92,7 @@ async fn a_stolen_tls_key_without_the_hybrid_key_is_caught_by_the_client() {
     let registry = registry_with(&client_key);
     let pin = real_server.pin();
 
-    // Positive control: the real hybrid identity on the same TLS setup succeeds.
+    // Sanity check: the real hybrid identity on the same TLS setup succeeds.
     let net = Net::new(&tls);
     let (client_side, server_side) = handshake(&net, &client_key, &real_server, &pin, &registry, (LABEL, LABEL)).await;
     client_side.expect("the real server is accepted");

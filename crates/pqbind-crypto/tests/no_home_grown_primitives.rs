@@ -4,8 +4,8 @@
 //! Responsibility: Check that this crate contains no hand-written cryptographic primitive: no known primitive constants in the source, and no dependency outside a short list of established crates.
 //!
 //! This is a guard, not a proof. It catches the usual ways a primitive sneaks in (an S-box, a hash initial value, a round constant, a
-//! lattice modulus) and a new dependency nobody decided on. Each check has a positive control that shows the scanner finds what it
-//! looks for.
+//! lattice modulus) and a new dependency nobody decided on. Each check also runs on a known bad input, to show the scanner finds what
+//! it looks for.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -77,7 +77,7 @@ fn dependencies_of(manifest: &str) -> Vec<String> {
 
 #[test]
 fn the_scanner_finds_each_kind_of_primitive_it_looks_for() {
-    // Positive controls: if these did not fire, the real scan below would prove nothing.
+    // Known bad inputs: if these did not fire, the real scan below would prove nothing.
     for (fragment, what) in FORBIDDEN_FRAGMENTS {
         let sample = format!("const TABLE: u64 = {fragment};");
         assert!(forbidden_in(&sample).iter().any(|(found, _)| found == fragment), "the scanner misses {what}");

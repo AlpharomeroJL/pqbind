@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-pqbind-Commercial
 // Copyright (c) 2026 VaultScribe Limited Liability Company
 
-//! Responsibility: Prove the headline claim: an attacker who holds a peer's classical (Ed25519) private key still cannot pass as that peer, with a positive control that shows the forging helper is itself correct.
+//! Responsibility: Prove the headline claim: an attacker who holds a peer's classical (Ed25519) private key still cannot pass as that peer, and check that the forging helper is itself correct.
 //!
 //! The attacker here has everything a quantum computer gives against a classical identity: the victim's Ed25519 private key, the
 //! victim's public key (public anyway), the exporter value of the session it is in, and every pin. What it lacks is the ML-DSA half,
@@ -27,7 +27,7 @@ fn victim() -> HybridIdentity {
 
 #[test]
 fn the_forging_helper_reproduces_a_real_proof_when_it_has_both_halves() {
-    // The positive control: with the victim's whole seed, the helper must give byte for byte the proof the real identity gives.
+    // The helper check: with the victim's whole seed, the helper must give byte for byte the proof the real identity gives.
     // Without this, an attack that fails could be failing because the helper is wrong.
     let victim = victim();
     let server = HybridIdentity::from_seed(&[0x22; 32]).expect("seed");
@@ -52,7 +52,7 @@ async fn an_attacker_with_the_servers_ed25519_key_but_not_its_ml_dsa_key_cannot_
 
     for (name, ml_dsa_seed, expected) in [
         ("attacker with only the Ed25519 half", ATTACKER_SEED, Some(Error::ServerIdentity)),
-        // The positive control of the same scenario: an attacker who also has the ML-DSA half is the server, and must get in.
+        // The same scenario with the whole key: an attacker who also has the ML-DSA half is the server, and must get in.
         ("control: attacker with both halves", VICTIM_SEED, None),
     ] {
         let (mut client_io, mut attacker_io) = channel();

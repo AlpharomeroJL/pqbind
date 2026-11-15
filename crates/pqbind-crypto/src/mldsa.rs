@@ -3,7 +3,7 @@
 
 //! Responsibility: Sign and verify with ML-DSA-87 (FIPS 204), with a signing key that zeroizes on drop.
 //!
-//! The CNSA 2.0 parameter set: the lower ML-DSA sets are not offered. Signing is the deterministic variant with an empty context
+//! Only the largest parameter set, ML-DSA-87, is offered; the lower ML-DSA sets are not. Signing is the deterministic variant with an empty context
 //! string, so it needs no random source and cannot fail on one. Callers put their own domain label in the message
 //! ([`crate::hybrid`]). This module is the post-quantum half: a trust decision takes both halves, through [`crate::hybrid`] or
 //! through the caller requiring both.

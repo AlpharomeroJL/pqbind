@@ -162,7 +162,7 @@ async fn an_attacker_with_the_stolen_tls_key_but_a_different_hybrid_identity_fai
     let (client_side, _) = handshake(&tls, &w, &attacker, APP, APP, &w.registry).await;
     assert_eq!(client_side.err(), Some(Error::Refused));
 
-    // The positive control: the same setup with the real hybrid identity succeeds.
+    // Sanity check: the same setup with the real hybrid identity succeeds.
     let (client_side, server_side) = handshake(&tls, &w, &w.server, APP, APP, &w.registry).await;
     client_side.expect("the real server is accepted");
     server_side.expect("the client is accepted");

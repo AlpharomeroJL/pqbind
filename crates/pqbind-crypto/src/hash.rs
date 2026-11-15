@@ -3,7 +3,7 @@
 
 //! Responsibility: Give the SHA-384 and HMAC-SHA-384 of the `sha2` and `hmac` crates to callers that need a NIST hash.
 //!
-//! Hashing is SHA-384 and keying is HMAC-SHA-384, the CNSA 2.0 strength.
+//! Hashing is SHA-384 and keying is HMAC-SHA-384.
 
 use hkdf::hmac::{Hmac, KeyInit, Mac};
 use sha2::{Digest as _, Sha384};

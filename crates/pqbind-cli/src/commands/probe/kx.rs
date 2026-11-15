@@ -3,8 +3,7 @@
 
 //! Responsibility: Offer the `SecP384r1MLKEM1024` TLS 1.3 key exchange group, which rustls does not ship, and build the single-group crypto providers the probe uses.
 //!
-//! The group is ported from the author's own VaultScribe `vs-mesh` crate (`hybrid_kx.rs`), with the product-only providers left out.
-//! It composes the two groups rustls itself offers (`kx_group::SECP384R1` and `kx_group::MLKEM1024`, both over aws-lc-rs), so nothing
+//! The group composes the two groups rustls itself offers (`kx_group::SECP384R1` and `kx_group::MLKEM1024`, both over aws-lc-rs), so nothing
 //! here is a primitive. It joins two shares and two secrets in the layout of RFC 10024 (IANA code point 0x11ED), classical part first:
 //!
 //! ```text

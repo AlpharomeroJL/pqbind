@@ -3,7 +3,7 @@
 
 //! Responsibility: Sign and verify with the hybrid Ed25519 and ML-DSA-87 suite, where a signature verifies only when both halves verify.
 //!
-//! At the CNSA 2.0 parameter set for ML-DSA: forging needs a break of Ed25519 and of ML-DSA-87 together. Both halves sign the same
+//! Forging a signature needs a break of Ed25519 and of ML-DSA-87 together. Both halves sign the same
 //! bytes, `LABEL | SHA-512(message)`:
 //!
 //! - The label stops a half being lifted out and passed off as a plain Ed25519 or ML-DSA signature, and a plain signature being

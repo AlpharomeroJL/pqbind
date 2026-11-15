@@ -3,7 +3,7 @@
 
 //! Responsibility: Derive keys with HKDF-SHA384 (RFC 5869).
 //!
-//! Key derivation is at the CNSA 2.0 hash strength, so HKDF-SHA256 is not offered.
+//! Key derivation is HKDF-SHA384 only; HKDF-SHA256 is not offered.
 //!
 //! What is wiped: the HKDF state (an HMAC keyed with the pseudorandom key) wipes its SHA-2 parts on drop, and the pseudorandom
 //! key that extract hands back is wiped here.
