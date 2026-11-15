@@ -1,6 +1,7 @@
 # Design
 
-This describes what the code does. Where something is a design choice that has not been reviewed, it says so.
+This page specifies what the code does: the hybrid signature, the proof, the handshake frames and the trust model. It ends with the
+reasons for the main choices. The limits of the design are in [SECURITY.md](SECURITY.md) and [THREAT_MODEL.md](THREAT_MODEL.md).
 
 ## The hybrid signature (`pqbind-crypto`)
 
@@ -13,10 +14,16 @@ This describes what the code does. Where something is a design choice that has n
 - **Both halves must verify.** Verification evaluates both halves whatever the first one answered.
 - Public keys and signatures start with a two-byte suite identifier, so a value only opens under the suite it names, which stops a
   downgrade. There is one suite, and no classical-only suite exists.
-- ML-DSA-87 is the RustCrypto `ml-dsa` 0.1 crate (never independently audited), signing in its deterministic variant with an empty
-  context string (pure ML-DSA over the label and digest above, not HashML-DSA). A public key
+- ML-DSA-87 is the RustCrypto `ml-dsa` 0.1 crate, which states that it has not been independently audited. It signs in its
+  deterministic variant with an empty context string (pure ML-DSA over the label and digest above, not HashML-DSA). A public key
   whose `t1` is all zero is refused, because such a key is forgeable whatever its `rho`.
-- This composition is a custom construction, not an IETF composite-signature pairing. Independent review is the open item.
+- The composition is pqbind's own, not an IETF composite-signature scheme, and it has not had an independent review.
+
+| Item | Encoding | Bytes |
+|---|---|---:|
+| Public key | suite ID 2, Ed25519 key 32, ML-DSA-87 key 2592 | 2,626 |
+| Signature | suite ID 2, Ed25519 signature 64, ML-DSA-87 signature 4627 | 4,693 |
+| Pin | SHA-384 of the whole encoded public key | 48 |
 
 ## The proof
 
@@ -50,11 +57,11 @@ server -> client   REFUSED       0x03
 - The server accepts a client only if the proof verifies **and** the key is enrolled for that transport identity. Once the HELLO has
   the right length and tag and carries a key that parses, it runs both checks whatever the first one answered, so timing does not
   tell an unknown key from a bad proof. A HELLO of the wrong length or tag, or with a key that does not parse, is refused earlier,
-  before either check runs. Every refusal is the same single `REFUSED` frame. A server learns locally whether a frame was malformed or refused,
-  and the peer does not.
+  before either check runs. Every refusal is the same single `REFUSED` frame. The server learns locally whether a frame was
+  malformed or refused; the peer does not.
 - The server proves itself only after the client passed.
-- The client accepts a server only if the key it sends has the pin the client holds **and** the proof verifies. It stops before
-  sending any application data otherwise.
+- The client accepts a server only if the key it sends has the pin the client holds **and** the proof verifies. Otherwise it stops
+  before sending any application data.
 - Keys in these frames are never trusted because they were sent. Trust comes from the enrolled registry and the pin.
 - Frames are a four-byte length and the bytes, at most 16 KiB, with a time limit on every step (30 seconds by default).
 - A server verifies the ML-DSA-87 half of a well-formed HELLO before it knows the sender is enrolled, so an unauthenticated peer can
@@ -63,22 +70,49 @@ server -> client   REFUSED       0x03
 ## Trust
 
 - A server keeps the full enrolled public keys of its clients, each with the transport identity it was enrolled from, in a
-  `ClientRegistry` the application supplies (a `MemoryRegistry` is included, with a strict encoded form that refuses a list that is
-  cut, extended, of another version or too large; a list that does not decode is an error, never an empty list).
-- A client keeps a SHA-384 **pin** of the server's whole hybrid public key, small enough for a QR code. The server sends its full key in
-  the connection, and the client checks it against the pin.
-- The pin covers the entire key, including the ML-DSA half. A transport identity that only authenticates the Ed25519 half would
+  `ClientRegistry` the application supplies. `MemoryRegistry` is included. Its encoded form is strict: it refuses a list that is cut,
+  extended, of another version or too large, and a list that does not decode is an error, never an empty list.
+- A client keeps a SHA-384 **pin** of the server's whole hybrid public key, small enough for a QR code. The server sends its full key
+  in the connection, and the client checks it against the pin.
+- The pin covers the entire key, including the ML-DSA half. A transport identity that only authenticated the Ed25519 half would
   leave the ML-DSA half unbound.
 - Public keys must be in their canonical encoding, so one key always has one pin.
 
 ## Transports
 
 Each adapter does two things: read the exporter value (through `Binding::derive`, which passes the label and context so an adapter
-cannot get them wrong) and carry frames over a stream. quinn and iroh open or accept one bidirectional stream; the rustls adapter splits
-a finished TLS 1.3 stream. The transport identity of a TLS peer is the SHA-384 of its leaf certificate; of an iroh peer, its node ID.
+cannot get them wrong) and carry frames over a stream. quinn and iroh open or accept one bidirectional stream; the rustls adapter
+splits a finished TLS 1.3 stream. The transport identity of a TLS peer is the SHA-384 of its leaf certificate; of an iroh peer, its
+node ID. A peer with no certificate is anonymous.
 
-## Open questions
+## Design notes
 
-- Whether to move to an IETF composite-signature pairing if a suitable one exists for Ed25519 with ML-DSA-87.
-- How key rotation should work: a new key signed by the old hybrid key would keep the chain post-quantum.
-- Independent review of the construction and of the `ml-dsa` crate it rests on.
+**Why the TLS exporter.** An exporter (RFC 5705, redefined for TLS 1.3 in RFC 8446 section 7.5) gives both ends the same bytes from
+the session's key schedule, and no other session produces them. Signing that value ties a proof to one connection, so a proof cannot
+be replayed on another connection or relayed between two. The adapters read it through the transport's own exporter call, and the
+application label is the exporter context, so two applications on one transport never share a value. The proof is only as strong as
+the secrecy of the exporter value, which depends on the transport's key exchange being post-quantum. pqbind does not check that.
+
+**Why both halves.** The aim is that forging a proof needs a break of Ed25519 and of ML-DSA-87 together. Requiring both halves means
+a future attack on either algorithm alone does not let an attacker pass. The cost is a larger key and signature (see the table
+above). Deriving the ML-DSA seed from the Ed25519 seed keeps one stored secret per identity.
+
+**Why the pins are in the transcript.** The pins make a proof hold for one pair of keys. A client that holds the wrong pin produces
+a proof the real server rejects, so the real server never proves itself to a client that pinned something else. An attacker that
+presents its own key instead is caught by the client's pin check.
+
+**Why every refusal looks the same.** One single-byte `REFUSED` frame, whatever failed, means a peer cannot use the reply to learn
+whether a key is enrolled, whether a proof was bad or whether a frame was malformed. The server records the real reason locally.
+
+**Why both server checks always run, and what that costs.** If the server checked enrollment first and skipped the signature check
+for unknown keys, a fast refusal would tell a prober which keys are enrolled. Running the proof check regardless closes that timing
+difference. The price is that any peer can make the server spend one ML-DSA-87 verification per connection before it knows the peer
+is enrolled. Frames of the wrong length or tag, and keys that do not parse, are rejected before either check, which is cheap. A
+deployment that prefers the other trade-off, or that wants to limit the cost, has to add rate limiting or connection caps outside
+pqbind.
+
+## Possible extensions
+
+- Moving to an IETF composite-signature scheme, if one is standardized for Ed25519 with ML-DSA-87.
+- Key rotation: a new key signed by the old hybrid key would keep the chain post-quantum.
+- Refusing a transport whose negotiated key exchange is not post-quantum, if the transports expose that.
