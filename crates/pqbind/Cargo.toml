@@ -1,0 +1,36 @@
+[package]
+name = "pqbind"
+description = "Post-quantum authentication for connections that already have post-quantum key exchange."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# Transport adapters. Each is off by default, so the core depends on no transport.
+quinn = ["dep:quinn"]
+rustls = ["dep:rustls", "dep:tokio-rustls"]
+iroh = ["dep:iroh"]
+
+[dependencies]
+pqbind-crypto = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+zeroize = { workspace = true }
+
+iroh = { workspace = true, optional = true }
+quinn = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
+tokio-rustls = { workspace = true, optional = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+rcgen = { workspace = true }
+# Only so a test can build a TLS 1.2 connection and check that the rustls adapter refuses it.
+rustls = { workspace = true, features = ["tls12"] }
+tokio = { workspace = true, features = ["macros", "net", "rt", "sync", "time", "io-util"] }

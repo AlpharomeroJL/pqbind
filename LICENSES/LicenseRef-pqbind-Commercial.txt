@@ -1,0 +1,5 @@
+pqbind is also available under a commercial license from VaultScribe Limited Liability Company.
+
+The terms of a commercial license are set by a written agreement with VaultScribe Limited Liability Company. This file only names
+that option, so the SPDX identifier LicenseRef-pqbind-Commercial in the source files points to something. It is not itself a license.
+See LICENSING.md.

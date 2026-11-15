@@ -1,0 +1,23 @@
+[package]
+name = "pqbind-crypto"
+description = "Hybrid Ed25519 and ML-DSA-87 signatures, HKDF-SHA384 and SHA-384, the small reviewable core of pqbind."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ed25519-dalek = { workspace = true }
+hkdf = { workspace = true }
+ml-dsa = { workspace = true }
+rand = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+zeroize = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
