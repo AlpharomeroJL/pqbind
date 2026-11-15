@@ -5,6 +5,13 @@ and the project intends to follow [Semantic Versioning](https://semver.org/) onc
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-15
+
+### Changed
+
+- The architecture diagrams are the panel alone, without the slide title and callout column, so they read at phone width.
+- The GitHub Actions workflows are removed; the checks run locally through `scripts/`.
+
 ## [0.1.0] - 2026-11-15
 
 First release, published to crates.io as `pqbind-crypto`, `pqbind` and `pqbind-cli`. Limitations are listed in
