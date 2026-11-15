@@ -2,7 +2,7 @@
 
 Run with `python -I docs/diagrams/src/render.py` from anywhere. Needs Google Chrome and the DM Sans and IBM Plex Mono
 woff2 files, read from PQBIND_FONTS_DIR (default C:\\dev\\vaultscribe\\packages\\fonts\\files). Writes
-docs/diagrams/diagrams.html, one NN-name.png per slide (1280x720 at device scale 2) and one NN-name.svg per diagram.
+docs/diagrams/diagrams.html, one NN-name.png per diagram (the panel alone, 816x548 at device scale 3) and one NN-name.svg per diagram.
 The output loads nothing from the network. `--check-only` stops after the layout check.
 
 The check prints one line per finding and exits 1 when there is any: text overlapping text, text crossing a wire or
@@ -214,8 +214,9 @@ def render(diagrams):
         png = OUT / f"{slide['file']}.png"
         if png.exists():
             png.unlink()
-        chrome("--window-size=1280,720", "--force-device-scale-factor=2", "--hide-scrollbars", "--virtual-time-budget=5000",
-               f"--screenshot={png}", PAGE.as_uri() + f"#p{n}")
+        # The diagram panel alone, from its standalone SVG, at 3x: no title and no callout column.
+        chrome("--window-size=816,548", "--force-device-scale-factor=3", "--hide-scrollbars", "--virtual-time-budget=5000",
+               f"--screenshot={png}", (OUT / f"{slide['file']}.svg").as_uri())
         if not png.exists():
             print("no PNG for", slide["file"])
             return 1
@@ -248,6 +249,6 @@ if __name__ == "__main__":
     token_text = build(module)
     code = check()
     if "--check-only" not in sys.argv:
-        code = render(module) or code
         standalone_svgs(module, token_text)
+        code = render(module) or code
     sys.exit(code)

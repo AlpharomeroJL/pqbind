@@ -1,7 +1,7 @@
 # Architecture diagrams
 
 Eight UML 2.5 slides of how pqbind works, each drawn from the code. `diagrams.html` shows all eight in a browser and works
-offline. Each PNG is 1280x720 at device scale 2 (2560x1440). Each SVG is the diagram panel on its own, with the colors
+offline. Each PNG is the diagram panel alone, 816x548 at device scale 3 (2448x1644). Each SVG is the same panel, with the colors
 resolved and the fonts embedded.
 
 | File | UML kind | What it shows | Source files it reflects |
