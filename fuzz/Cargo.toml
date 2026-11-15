@@ -1,0 +1,54 @@
+[package]
+name = "pqbind-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+authors = ["VaultScribe Limited Liability Company"]
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+# A standalone workspace: the fuzz crate is not a member of the root workspace, so a normal build and test never builds it.
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+pqbind = { path = "../crates/pqbind", default-features = false }
+pqbind-crypto = { path = "../crates/pqbind-crypto" }
+tokio = { version = "1.53", default-features = false, features = ["rt"] }
+
+[[bin]]
+name = "public_identity"
+path = "fuzz_targets/public_identity.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "pin_hex"
+path = "fuzz_targets/pin_hex.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "enrollment_list"
+path = "fuzz_targets/enrollment_list.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "server_hello"
+path = "fuzz_targets/server_hello.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "client_reply"
+path = "fuzz_targets/client_reply.rs"
+test = false
+doc = false
+bench = false

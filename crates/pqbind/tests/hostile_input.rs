@@ -3,43 +3,12 @@
 
 //! Responsibility: Prove the parsers and the handshake never panic and never accept on hostile input: random frames, near-valid frames, random encoded lists.
 
-use pqbind::{
-    Binding, EXPORTER_LEN, Error, FrameError, FrameIo, HybridIdentity, MemoryRegistry, PeerId, Pin, PublicIdentity, accept, connect,
-};
+mod common;
+
+use common::{Scripted, runtime};
+use pqbind::{Error, HybridIdentity, MemoryRegistry, PeerId, Pin, PublicIdentity, accept, connect};
 use proptest::collection::vec;
 use proptest::prelude::*;
-
-/// A channel that returns canned frames and records what was sent.
-struct Scripted {
-    binding: Binding,
-    incoming: std::collections::VecDeque<Vec<u8>>,
-    sent: Vec<Vec<u8>>,
-}
-
-impl Scripted {
-    fn new(incoming: Vec<Vec<u8>>) -> Self {
-        Self { binding: Binding::new(b"fuzz/v1", [5; EXPORTER_LEN]).expect("binding"), incoming: incoming.into(), sent: Vec::new() }
-    }
-}
-
-impl FrameIo for Scripted {
-    fn binding(&self) -> &Binding {
-        &self.binding
-    }
-
-    async fn send(&mut self, frame: &[u8]) -> Result<(), FrameError> {
-        self.sent.push(frame.to_vec());
-        Ok(())
-    }
-
-    async fn recv(&mut self) -> Result<Vec<u8>, FrameError> {
-        self.incoming.pop_front().ok_or(FrameError)
-    }
-}
-
-fn runtime() -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_current_thread().enable_all().build().expect("runtime")
-}
 
 /// The length of a well-shaped HELLO or SERVER_PROOF frame: tag, public key, proof.
 const SHAPED_LEN: usize = 1 + pqbind_crypto::hybrid::PUBLIC_KEY_LEN + pqbind_crypto::hybrid::SIGNATURE_LEN;

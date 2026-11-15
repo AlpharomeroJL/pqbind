@@ -64,10 +64,12 @@ fn dependencies_of(manifest: &str) -> Vec<String> {
             in_section = line == "[dependencies]";
             continue;
         }
-        if in_section && !line.is_empty() && !line.starts_with('#') {
-            if let Some((name, _)) = line.split_once('=') {
-                names.push(name.trim().to_owned());
-            }
+        if in_section
+            && !line.is_empty()
+            && !line.starts_with('#')
+            && let Some((name, _)) = line.split_once('=')
+        {
+            names.push(name.trim().to_owned());
         }
     }
     names

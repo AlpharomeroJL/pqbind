@@ -7,53 +7,15 @@
 //! victim's public key (public anyway), the exporter value of the session it is in, and every pin. What it lacks is the ML-DSA half,
 //! which is derived from the victim's seed and is not recoverable from the Ed25519 key.
 
+mod common;
+
+use common::{HELLO, SERVER_PROOF, forged_proof};
 use pqbind::proof::{self, Role, Transcript};
-use pqbind::{Binding, EXPORTER_LEN, Enrollment, Error, FrameError, FrameIo, HybridIdentity, MemoryRegistry, PeerId, Pin, accept, connect};
-use tokio::sync::mpsc;
+use pqbind::{Binding, EXPORTER_LEN, Enrollment, Error, FrameIo, HybridIdentity, MemoryRegistry, PeerId, Pin, accept, connect};
 
-const HELLO: u8 = 0x01;
-const SERVER_PROOF: u8 = 0x02;
-
-struct MemoryFrames {
-    binding: Binding,
-    tx: mpsc::Sender<Vec<u8>>,
-    rx: mpsc::Receiver<Vec<u8>>,
-}
-
-impl FrameIo for MemoryFrames {
-    fn binding(&self) -> &Binding {
-        &self.binding
-    }
-
-    async fn send(&mut self, frame: &[u8]) -> Result<(), FrameError> {
-        self.tx.send(frame.to_vec()).await.map_err(|_| FrameError)
-    }
-
-    async fn recv(&mut self) -> Result<Vec<u8>, FrameError> {
-        self.rx.recv().await.ok_or(FrameError)
-    }
-}
-
-fn channel() -> (MemoryFrames, MemoryFrames) {
-    let (to_server, from_client) = mpsc::channel(8);
-    let (to_client, from_server) = mpsc::channel(8);
-    let binding = || Binding::new(b"test-app/v1", [3; EXPORTER_LEN]).expect("binding");
-    (
-        MemoryFrames { binding: binding(), tx: to_server, rx: from_server },
-        MemoryFrames { binding: binding(), tx: to_client, rx: from_client },
-    )
-}
-
-/// What an attacker can build: a hybrid proof whose Ed25519 half comes from `ed_seed` and whose ML-DSA half comes from `ml_dsa_seed`.
-/// It rebuilds the signed bytes with the crate's own public functions, so it signs exactly what a real proof signs.
-fn forged_proof(role: Role, ed_seed: &[u8; 32], ml_dsa_seed: &[u8; 32], transcript: &Transcript<'_>) -> Vec<u8> {
-    let signed = pqbind_crypto::hybrid::signed_bytes(&proof::transcript_bytes(role, transcript));
-    let classical = pqbind_crypto::sign::SigningKey::from_seed(ed_seed).sign(&signed);
-    let post_quantum = pqbind_crypto::hybrid::ml_dsa_key_of_seed(ml_dsa_seed).expect("seed").sign(&signed).expect("sign");
-    let mut out = pqbind_crypto::suite::SignatureSuite::Ed25519MlDsa87.id().to_be_bytes().to_vec();
-    out.extend_from_slice(&classical.to_bytes());
-    out.extend_from_slice(post_quantum.as_bytes());
-    out
+/// A connected in-memory pair whose two ends read one exporter value, as the two ends of one connection do.
+fn channel() -> (common::MemoryFrames, common::MemoryFrames) {
+    common::channel(3, 3)
 }
 
 const VICTIM_SEED: [u8; 32] = [0x11; 32];

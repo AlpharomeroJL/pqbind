@@ -4,84 +4,20 @@
 
 //! Responsibility: Prove the rustls adapter over real TLS 1.3 on the loopback interface: the honest pair, the stolen TLS key, refusals, exporter properties and peer identities.
 
+mod common;
+
 use std::sync::Arc;
 
+use common::rustls_net::{self, tls_pair};
+use common::{Tls, identity};
 use pqbind::adapters::rustls::{frames, peer_id};
-use pqbind::{ClientRegistry, Enrollment, Error, Established, FrameIo, HybridIdentity, MemoryRegistry, PeerId, Pin, accept, connect};
-use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, ServerName};
+use pqbind::{ClientRegistry, Error, Established, FrameIo, HybridIdentity, MemoryRegistry, PeerId, Pin, accept, connect};
+use rustls::pki_types::ServerName;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::{TlsAcceptor, TlsConnector, TlsStream};
 
 const APP: &[u8] = b"rustls-test/v1";
-
-/// A self-signed TLS certificate for `localhost`, with its private key.
-struct Tls {
-    cert: CertificateDer<'static>,
-    key_der: Vec<u8>,
-}
-
-impl Tls {
-    fn new() -> Self {
-        let rcgen::CertifiedKey { cert, signing_key } =
-            rcgen::generate_simple_self_signed(vec!["localhost".to_string()]).expect("certificate");
-        Self { cert: cert.der().clone(), key_der: signing_key.serialize_der() }
-    }
-
-    fn provider() -> Arc<rustls::crypto::CryptoProvider> {
-        Arc::new(rustls::crypto::aws_lc_rs::default_provider())
-    }
-
-    fn acceptor(&self) -> TlsAcceptor {
-        let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(self.key_der.clone()));
-        let config = rustls::ServerConfig::builder_with_provider(Self::provider())
-            .with_protocol_versions(&[&rustls::version::TLS13])
-            .expect("versions")
-            .with_no_client_auth()
-            .with_single_cert(vec![self.cert.clone()], key)
-            .expect("server config");
-        TlsAcceptor::from(Arc::new(config))
-    }
-
-    fn connector(&self) -> TlsConnector {
-        let mut roots = rustls::RootCertStore::empty();
-        roots.add(self.cert.clone()).expect("root");
-        let config = rustls::ClientConfig::builder_with_provider(Self::provider())
-            .with_protocol_versions(&[&rustls::version::TLS13])
-            .expect("versions")
-            .with_root_certificates(roots)
-            .with_no_client_auth();
-        TlsConnector::from(Arc::new(config))
-    }
-
-    /// The peer identity of this certificate, as a client computes it for the server.
-    fn id(&self) -> PeerId {
-        PeerId::of_certificate(self.cert.as_ref())
-    }
-}
-
-/// One real TLS 1.3 connection over 127.0.0.1: `(client end, server end)`.
-async fn tls_pair(tls: &Tls) -> (TlsStream<TcpStream>, TlsStream<TcpStream>) {
-    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
-    let addr = listener.local_addr().expect("addr");
-    let acceptor = tls.acceptor();
-    let connector = tls.connector();
-    let client = async {
-        let tcp = TcpStream::connect(addr).await.expect("connect");
-        let name = ServerName::try_from("localhost").expect("name");
-        connector.connect(name, tcp).await.expect("tls client")
-    };
-    let server = async {
-        let (tcp, _) = listener.accept().await.expect("accept");
-        acceptor.accept(tcp).await.expect("tls server")
-    };
-    let (client, server) = tokio::join!(client, server);
-    (client.into(), server.into())
-}
-
-fn identity(fill: u8) -> HybridIdentity {
-    HybridIdentity::from_seed(&[fill; 32]).expect("seed")
-}
 
 /// A client enrolled for the anonymous transport identity (it presents no certificate), and the server's identity and pin.
 struct World {
@@ -93,9 +29,8 @@ struct World {
 
 fn world() -> World {
     let server = identity(2);
-    let w = World { client: identity(1), server_pin: server.pin(), server, registry: MemoryRegistry::new() };
-    w.registry.enroll(Enrollment { key: w.client.public(), peer_id: PeerId::anonymous(), enrolled_at_unix_millis: 0 });
-    w
+    let client = identity(1);
+    World { registry: common::registry_for(&client, PeerId::anonymous()), server_pin: server.pin(), client, server }
 }
 
 type Ends = (Result<Established, Error>, Result<Established, Error>);
@@ -124,19 +59,16 @@ async fn handshake(
 #[tokio::test]
 async fn a_tls_1_2_connection_is_refused_because_its_exporter_is_not_bound_to_the_whole_handshake() {
     let tls = Tls::new();
-    let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(tls.key_der.clone()));
-    let server_config = rustls::ServerConfig::builder_with_provider(Tls::provider())
+    let server_config = rustls::ServerConfig::builder_with_provider(rustls_net::provider())
         .with_protocol_versions(&[&rustls::version::TLS12])
         .expect("versions")
         .with_no_client_auth()
-        .with_single_cert(vec![tls.cert.clone()], key)
+        .with_single_cert(vec![rustls_net::cert(&tls)], rustls_net::private_key(&tls))
         .expect("server config");
-    let mut roots = rustls::RootCertStore::empty();
-    roots.add(tls.cert.clone()).expect("root");
-    let client_config = rustls::ClientConfig::builder_with_provider(Tls::provider())
+    let client_config = rustls::ClientConfig::builder_with_provider(rustls_net::provider())
         .with_protocol_versions(&[&rustls::version::TLS12])
         .expect("versions")
-        .with_root_certificates(roots)
+        .with_root_certificates(rustls_net::roots(&tls))
         .with_no_client_auth();
     let acceptor = TlsAcceptor::from(Arc::new(server_config));
     let connector = TlsConnector::from(Arc::new(client_config));
@@ -274,7 +206,7 @@ async fn peer_id_is_anonymous_without_a_client_certificate_and_the_certificate_h
     let tls = Tls::new();
     let (client_tls, server_tls) = tls_pair(&tls).await;
     assert_eq!(peer_id(&server_tls), PeerId::anonymous(), "the client presented no certificate");
-    assert_eq!(peer_id(&client_tls), PeerId::of_certificate(tls.cert.as_ref()));
+    assert_eq!(peer_id(&client_tls), PeerId::of_certificate(&tls.cert_der));
     assert!(!peer_id(&client_tls).is_anonymous());
 }
 

@@ -5,111 +5,19 @@
 
 #![cfg(feature = "quinn")]
 
-use std::future::Future;
-use std::net::SocketAddr;
-use std::sync::Arc;
-use std::time::Duration;
+mod common;
 
-use ::quinn::crypto::rustls::{QuicClientConfig, QuicServerConfig};
-use ::quinn::rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
-use ::quinn::{ClientConfig, Connection, Endpoint, ServerConfig};
+use common::quinn_net::Net;
+use common::{Tls, identity, within};
 use pqbind::adapters::quinn as pq_quinn;
 use pqbind::proof::{self, Role, Transcript};
-use pqbind::{ClientRegistry, Enrollment, Error, Established, FrameIo, HybridIdentity, MemoryRegistry, PeerId, Pin};
+use pqbind::{ClientRegistry, Error, Established, FrameIo, HybridIdentity, MemoryRegistry, PeerId, Pin};
 
 const LABEL: &[u8] = b"quinn-test/v1";
-const LOOPBACK: &str = "127.0.0.1:0";
-
-/// Fail a test that hangs instead of waiting forever.
-async fn within<T>(future: impl Future<Output = T>) -> T {
-    tokio::time::timeout(Duration::from_secs(30), future).await.expect("the step finished in time")
-}
-
-/// A self-signed TLS certificate and its private key.
-#[derive(Clone)]
-struct Tls {
-    cert_der: Vec<u8>,
-    key_der: Vec<u8>,
-}
-
-impl Tls {
-    fn new() -> Self {
-        let made = rcgen::generate_simple_self_signed(vec!["localhost".to_owned()]).expect("certificate");
-        Self { cert_der: made.cert.der().to_vec(), key_der: made.signing_key.serialize_der() }
-    }
-
-    fn cert(&self) -> CertificateDer<'static> {
-        CertificateDer::from(self.cert_der.clone())
-    }
-
-    fn id(&self) -> PeerId {
-        PeerId::of_certificate(&self.cert_der)
-    }
-}
-
-fn provider() -> Arc<::quinn::rustls::crypto::CryptoProvider> {
-    Arc::new(::quinn::rustls::crypto::aws_lc_rs::default_provider())
-}
-
-fn server_endpoint(tls: &Tls) -> Endpoint {
-    let key = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(tls.key_der.clone()));
-    let rustls_config = ::quinn::rustls::ServerConfig::builder_with_provider(provider())
-        .with_protocol_versions(&[&::quinn::rustls::version::TLS13])
-        .expect("TLS 1.3")
-        .with_no_client_auth()
-        .with_single_cert(vec![tls.cert()], key)
-        .expect("server certificate");
-    let config = ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(rustls_config).expect("QUIC server config")));
-    Endpoint::server(config, LOOPBACK.parse().expect("address")).expect("server endpoint")
-}
-
-fn client_endpoint(trusted: &Tls) -> Endpoint {
-    let mut roots = ::quinn::rustls::RootCertStore::empty();
-    roots.add(trusted.cert()).expect("trust the certificate");
-    let rustls_config = ::quinn::rustls::ClientConfig::builder_with_provider(provider())
-        .with_protocol_versions(&[&::quinn::rustls::version::TLS13])
-        .expect("TLS 1.3")
-        .with_root_certificates(roots)
-        .with_no_client_auth();
-    let config = ClientConfig::new(Arc::new(QuicClientConfig::try_from(rustls_config).expect("QUIC client config")));
-    let mut endpoint = Endpoint::client(LOOPBACK.parse().expect("address")).expect("client endpoint");
-    endpoint.set_default_client_config(config);
-    endpoint
-}
-
-/// A server endpoint and a client endpoint that trusts `tls`, both on 127.0.0.1.
-struct Net {
-    server: Endpoint,
-    client: Endpoint,
-    addr: SocketAddr,
-    tls: Tls,
-}
-
-impl Net {
-    fn new(tls: &Tls) -> Self {
-        let server = server_endpoint(tls);
-        let addr = server.local_addr().expect("server address");
-        assert!(addr.ip().is_loopback(), "the server is bound to loopback only");
-        Self { client: client_endpoint(tls), server, addr, tls: tls.clone() }
-    }
-
-    /// Open one QUIC connection: `(client end, server end)`.
-    async fn connection(&self) -> (Connection, Connection) {
-        let client = async { self.client.connect(self.addr, "localhost").expect("connect").await.expect("client handshake") };
-        let server = async { self.server.accept().await.expect("incoming").await.expect("server handshake") };
-        within(async { tokio::join!(client, server) }).await
-    }
-}
-
-fn identity(fill: u8) -> HybridIdentity {
-    HybridIdentity::from_seed(&[fill; 32]).expect("seed")
-}
 
 /// The client has no TLS certificate, so its transport identity is anonymous; enroll it that way.
 fn registry_with(client: &HybridIdentity) -> MemoryRegistry {
-    let registry = MemoryRegistry::new();
-    registry.enroll(Enrollment { key: client.public(), peer_id: PeerId::anonymous(), enrolled_at_unix_millis: 0 });
-    registry
+    common::registry_for(client, PeerId::anonymous())
 }
 
 type Outcome = Result<Established, Error>;

@@ -3,96 +3,10 @@
 
 //! Responsibility: Prove the handshake end to end over an in-memory channel: the honest pair, every refusal, and the replay, relay and malformed-frame cases.
 
-use pqbind::{
-    Binding, ClientRegistry, EXPORTER_LEN, Enrollment, Error, FrameError, FrameIo, HybridIdentity, MemoryRegistry, PeerId, Pin,
-    PublicIdentity, accept, connect,
-};
-use tokio::sync::mpsc;
+mod common;
 
-const HELLO: u8 = 0x01;
-const SERVER_PROOF: u8 = 0x02;
-const REFUSED: u8 = 0x03;
-
-/// One end of an in-memory channel. Each end has its own binding, so a test can give the two ends the same exporter value (one
-/// connection) or different ones (two connections joined by a relay).
-struct MemoryFrames {
-    binding: Binding,
-    tx: mpsc::Sender<Vec<u8>>,
-    rx: mpsc::Receiver<Vec<u8>>,
-}
-
-impl FrameIo for MemoryFrames {
-    fn binding(&self) -> &Binding {
-        &self.binding
-    }
-
-    async fn send(&mut self, frame: &[u8]) -> Result<(), FrameError> {
-        self.tx.send(frame.to_vec()).await.map_err(|_| FrameError)
-    }
-
-    async fn recv(&mut self) -> Result<Vec<u8>, FrameError> {
-        self.rx.recv().await.ok_or(FrameError)
-    }
-}
-
-fn binding(exporter: u8) -> Binding {
-    Binding::new(b"test-app/v1", [exporter; EXPORTER_LEN]).expect("binding")
-}
-
-/// A connected pair `(client end, server end)` whose ends read these exporter values.
-fn channel(client_exporter: u8, server_exporter: u8) -> (MemoryFrames, MemoryFrames) {
-    let (to_server, from_client) = mpsc::channel(8);
-    let (to_client, from_server) = mpsc::channel(8);
-    (
-        MemoryFrames { binding: binding(client_exporter), tx: to_server, rx: from_server },
-        MemoryFrames { binding: binding(server_exporter), tx: to_client, rx: from_client },
-    )
-}
-
-fn identity(fill: u8) -> HybridIdentity {
-    HybridIdentity::from_seed(&[fill; 32]).expect("seed")
-}
-
-fn peer(name: &[u8]) -> PeerId {
-    PeerId::new(name).expect("peer id")
-}
-
-/// A server, a client enrolled with it, and the two transport identities.
-struct World {
-    client: HybridIdentity,
-    server: HybridIdentity,
-    server_pin: Pin,
-    registry: MemoryRegistry,
-    client_id: PeerId,
-    server_id: PeerId,
-}
-
-fn world() -> World {
-    let server = identity(2);
-    let w = World {
-        client: identity(1),
-        server_pin: server.pin(),
-        server,
-        registry: MemoryRegistry::new(),
-        client_id: peer(b"client-node"),
-        server_id: peer(b"server-node"),
-    };
-    w.registry.enroll(Enrollment { key: w.client.public(), peer_id: w.client_id.clone(), enrolled_at_unix_millis: 0 });
-    w
-}
-
-async fn run(
-    w: &World,
-    pin: &Pin,
-    ends: (MemoryFrames, MemoryFrames),
-    registry: &dyn ClientRegistry,
-) -> (Result<pqbind::Established, Error>, Result<pqbind::Established, Error>) {
-    let (mut client_io, mut server_io) = ends;
-    tokio::join!(
-        connect(&mut client_io, &w.client, &w.client_id, &w.server_id, pin),
-        accept(&mut server_io, &w.server, &w.server_id, &w.client_id, registry),
-    )
-}
+use common::{HELLO, REFUSED, SERVER_PROOF, binding, channel, identity, peer, run, world};
+use pqbind::{Error, FrameIo, MemoryRegistry, PublicIdentity, accept, connect};
 
 #[tokio::test]
 async fn an_enrolled_client_and_the_pinned_server_authenticate_each_other() {
@@ -215,7 +129,7 @@ async fn a_client_refuses_replies_that_are_not_a_server_proof() {
             attacker.recv().await.expect("hello");
             attacker.send(&reply).await.expect("reply");
         });
-        let error = result.err().expect("an error");
+        let error = result.expect_err("an error");
         assert!(matches!(error, Error::Malformed | Error::ServerIdentity), "reply {reply:?} gave {error:?}");
     }
 }

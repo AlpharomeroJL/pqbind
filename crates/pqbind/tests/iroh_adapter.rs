@@ -9,39 +9,19 @@
 
 #![cfg(feature = "iroh")]
 
-use std::net::Ipv4Addr;
+mod common;
+
 use std::time::Duration;
 
-use iroh::endpoint::{NetReportConfig, PortmapperConfig, presets};
-use iroh::{Endpoint, EndpointAddr, RelayMode, SecretKey};
+use common::identity;
+use common::iroh_net::{ALPN, loopback_endpoint};
+use iroh::{Endpoint, EndpointAddr};
 use pqbind::adapters::iroh as adapter;
 use pqbind::{Enrollment, Error, Established, HybridIdentity, MemoryRegistry, PeerId, Pin, PublicIdentity};
 
-const ALPN: &[u8] = b"pqbind-test/iroh/1";
 const LABEL: &[u8] = b"pqbind-test/iroh-adapter/v1";
 const WAIT: Duration = Duration::from_secs(60);
 const LINGER: Duration = Duration::from_secs(10);
-
-/// An iroh endpoint that can be reached only on 127.0.0.1: no other socket, no relay, no lookup, no port mapping.
-async fn loopback_endpoint(secret: [u8; 32]) -> Endpoint {
-    let endpoint = Endpoint::builder(presets::Minimal)
-        .secret_key(SecretKey::from_bytes(&secret))
-        .alpns(vec![ALPN.to_vec()])
-        .relay_mode(RelayMode::Disabled)
-        .clear_address_lookup()
-        .portmapper_config(PortmapperConfig::Disabled)
-        .net_report_config(NetReportConfig::minimal())
-        .clear_ip_transports()
-        .bind_addr((Ipv4Addr::LOCALHOST, 0))
-        .expect("a loopback address")
-        .bind()
-        .await
-        .expect("bind on loopback");
-    let sockets = endpoint.bound_sockets();
-    assert!(!sockets.is_empty(), "the endpoint has a socket");
-    assert!(sockets.iter().all(|socket| socket.ip().is_loopback()), "every socket is on loopback: {sockets:?}");
-    endpoint
-}
 
 /// What one end saw: the result of the pqbind handshake, and the application bytes it received afterwards (only after success).
 struct End {
@@ -126,10 +106,6 @@ async fn run(
     })
     .await
     .expect("the exchange finished in time")
-}
-
-fn identity(fill: u8) -> HybridIdentity {
-    HybridIdentity::from_seed(&[fill; 32]).expect("a seed")
 }
 
 fn enrolled(key: PublicIdentity, node: PeerId) -> Option<Enrollment> {
