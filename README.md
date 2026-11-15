@@ -10,7 +10,6 @@ Break the classical key and you still can't get in.
 [![Docs.rs](https://img.shields.io/docsrs/pqbind)](https://docs.rs/pqbind)
 [![Downloads](https://img.shields.io/crates/d/pqbind.svg)](https://crates.io/crates/pqbind)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--only%20%7C%20commercial-1f6feb)](LICENSING.md)
-[![MSRV](https://img.shields.io/crates/msrv/pqbind.svg)](Cargo.toml)
 [![Status](https://img.shields.io/badge/status-pre--1.0-d4a72c)](#security-model)
 
 <img src="docs/media/demo.gif" alt="pqbind demo: eight attack scenarios over a real QUIC connection" width="860">
