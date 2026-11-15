@@ -1,0 +1,451 @@
+{
+  "command": "pqbind demo",
+  "exit_code": 0,
+  "duration_seconds": 0.3954,
+  "lines": [
+    {
+      "t": 0.3226,
+      "text": "pqbind demo (transport: quic; everything stays on 127.0.0.1)"
+    },
+    {
+      "t": 0.3226,
+      "text": ""
+    },
+    {
+      "t": 0.3227,
+      "text": "A client and a server talk over a connection that already exists. After the transport handshake"
+    },
+    {
+      "t": 0.3227,
+      "text": "each signs the connection's own TLS exporter value, both transport identities and both key pins"
+    },
+    {
+      "t": 0.3227,
+      "text": "with a hybrid Ed25519 + ML-DSA-87 key. Assume a quantum attacker has broken everything"
+    },
+    {
+      "t": 0.3227,
+      "text": "classical: the TLS certificate key and the Ed25519 half of every pqbind key. The scenarios below"
+    },
+    {
+      "t": 0.3227,
+      "text": "run each attack for real and show what stops it, and the one thing that cannot be stopped."
+    },
+    {
+      "t": 0.3227,
+      "text": ""
+    },
+    {
+      "t": 0.3625,
+      "text": "[a] Honest pair"
+    },
+    {
+      "t": 0.3625,
+      "text": "    Story:    A client and a server, each with its own hybrid key. The client has pinned the"
+    },
+    {
+      "t": 0.3625,
+      "text": "              server's key and the server has enrolled the client's key. No attacker is involved."
+    },
+    {
+      "t": 0.3625,
+      "text": "    Expected: both ends complete the pqbind handshake over the real connection (client Ok, server"
+    },
+    {
+      "t": 0.3625,
+      "text": "              Ok)"
+    },
+    {
+      "t": 0.3625,
+      "text": "    Observed: client Ok, server Ok"
+    },
+    {
+      "t": 0.3625,
+      "text": "              server pin afad120dbad2f074 (pinned by the client, proved by the server)"
+    },
+    {
+      "t": 0.3625,
+      "text": "              client pin fe29c0c2347e4021 (enrolled by the server, proved by the client)"
+    },
+    {
+      "t": 0.3625,
+      "text": "              each end authenticated the key it expected: true"
+    },
+    {
+      "t": 0.3625,
+      "text": "    Verdict:  as expected"
+    },
+    {
+      "t": 0.3625,
+      "text": ""
+    },
+    {
+      "t": 0.3658,
+      "text": "[b1] Classical break: an attacker impersonates the server"
+    },
+    {
+      "t": 0.3658,
+      "text": "    Story:    The attacker holds the server's TLS certificate key (so the TLS handshake completes"
+    },
+    {
+      "t": 0.3658,
+      "text": "              and the client's certificate check passes) and the server's Ed25519 key, but NOT its"
+    },
+    {
+      "t": 0.3658,
+      "text": "              ML-DSA key. It answers the client's HELLO with the server's real public key and a"
+    },
+    {
+      "t": 0.3658,
+      "text": "              forged proof."
+    },
+    {
+      "t": 0.3658,
+      "text": "    Expected: the client refuses the server: it cannot prove the pinned key (client"
+    },
+    {
+      "t": 0.3658,
+      "text": "              Err(ServerIdentity))"
+    },
+    {
+      "t": 0.3658,
+      "text": "    Observed: client Err(ServerIdentity)"
+    },
+    {
+      "t": 0.3658,
+      "text": "              the TLS handshake completed, so the transport alone would have trusted the attacker"
+    },
+    {
+      "t": 0.3658,
+      "text": "              the attacker sent the server's real public key and a proof with a forged ML-DSA half"
+    },
+    {
+      "t": 0.3658,
+      "text": "    Verdict:  as expected"
+    },
+    {
+      "t": 0.3658,
+      "text": ""
+    },
+    {
+      "t": 0.3697,
+      "text": "[b2] Classical break: the attacker runs the real pqbind code"
+    },
+    {
+      "t": 0.3697,
+      "text": "    Story:    Same attacker, same stolen TLS key, but now it runs the real pqbind accept code with"
+    },
+    {
+      "t": 0.3697,
+      "text": "              its own hybrid identity instead of forging a proof. The client's proof names the"
+    },
+    {
+      "t": 0.3697,
+      "text": "              pinned server key, which the attacker does not hold."
+    },
+    {
+      "t": 0.3698,
+      "text": "    Expected: the client is refused: its proof does not verify for the attacker's key (client"
+    },
+    {
+      "t": 0.3698,
+      "text": "              Err(Refused), attacker Err(Refused))"
+    },
+    {
+      "t": 0.3698,
+      "text": "    Observed: client Err(Refused), attacker Err(Refused)"
+    },
+    {
+      "t": 0.3698,
+      "text": "              the attacker's own key has pin f8794f0d7b053465 and the client pinned"
+    },
+    {
+      "t": 0.3698,
+      "text": "              afad120dbad2f074"
+    },
+    {
+      "t": 0.3698,
+      "text": "    Verdict:  as expected"
+    },
+    {
+      "t": 0.3698,
+      "text": ""
+    },
+    {
+      "t": 0.3725,
+      "text": "[c] Classical break: an attacker impersonates an enrolled client"
+    },
+    {
+      "t": 0.3725,
+      "text": "    Story:    The attacker holds an enrolled client's Ed25519 key but NOT its ML-DSA key. It"
+    },
+    {
+      "t": 0.3725,
+      "text": "              connects to the real server and sends the client's real public key with a forged"
+    },
+    {
+      "t": 0.3725,
+      "text": "              proof."
+    },
+    {
+      "t": 0.3725,
+      "text": "    Expected: the server refuses the attacker (server Err(Refused))"
+    },
+    {
+      "t": 0.3725,
+      "text": "    Observed: server Err(Refused)"
+    },
+    {
+      "t": 0.3725,
+      "text": "              the attacker sent the client's real public key and a proof with a forged ML-DSA half"
+    },
+    {
+      "t": 0.3725,
+      "text": "              the server answered with the single REFUSED frame"
+    },
+    {
+      "t": 0.3725,
+      "text": "    Verdict:  as expected"
+    },
+    {
+      "t": 0.3725,
+      "text": ""
+    },
+    {
+      "t": 0.3775,
+      "text": "[d] Relay: a man in the middle copies frames between two connections"
+    },
+    {
+      "t": 0.3775,
+      "text": "    Story:    The attacker holds the TLS key, so it terminates TLS for the client, opens its own"
+    },
+    {
+      "t": 0.3775,
+      "text": "              connection to the real server and copies the pqbind frames between them. The"
+    },
+    {
+      "t": 0.3775,
+      "text": "              client's proof was made over the exporter value of the first connection, which is"
+    },
+    {
+      "t": 0.3775,
+      "text": "              not the connection the server sees."
+    },
+    {
+      "t": 0.3775,
+      "text": "    Expected: the server refuses the relayed proof, and the client is told it was refused (client"
+    },
+    {
+      "t": 0.3775,
+      "text": "              Err(Refused), server Err(Refused))"
+    },
+    {
+      "t": 0.3775,
+      "text": "    Observed: client Err(Refused), server Err(Refused)"
+    },
+    {
+      "t": 0.3775,
+      "text": "              both TLS legs completed; the relay never ran pqbind accept or connect"
+    },
+    {
+      "t": 0.3775,
+      "text": "              the relay forwarded frames"
+    },
+    {
+      "t": 0.3775,
+      "text": "              the relay copied the client's frame (7320 byte(s)) to the server and the server's"
+    },
+    {
+      "t": 0.3775,
+      "text": "              answer (1 byte(s)) back"
+    },
+    {
+      "t": 0.3775,
+      "text": "    Verdict:  as expected"
+    },
+    {
+      "t": 0.3775,
+      "text": ""
+    },
+    {
+      "t": 0.3807,
+      "text": "[e] A client that was never enrolled"
+    },
+    {
+      "t": 0.3807,
+      "text": "    Story:    A client with a perfectly valid hybrid key that the server has never enrolled. Its"
+    },
+    {
+      "t": 0.3807,
+      "text": "              proof is genuine, but the server only trusts keys it enrolled beforehand."
+    },
+    {
+      "t": 0.3807,
+      "text": "    Expected: the server refuses it, with the same single answer it gives for every refusal"
+    },
+    {
+      "t": 0.3807,
+      "text": "              (client Err(Refused), server Err(Refused))"
+    },
+    {
+      "t": 0.3807,
+      "text": "    Observed: client Err(Refused), server Err(Refused)"
+    },
+    {
+      "t": 0.3807,
+      "text": "              the outsider's pin 741c8eb45e584dfd is not on the server's list"
+    },
+    {
+      "t": 0.3807,
+      "text": "    Verdict:  as expected"
+    },
+    {
+      "t": 0.3807,
+      "text": ""
+    },
+    {
+      "t": 0.3851,
+      "text": "[f1] LIMIT: the whole client key is stolen"
+    },
+    {
+      "t": 0.3852,
+      "text": "    Story:    The attacker holds BOTH halves of an enrolled client's key (the whole seed), so it"
+    },
+    {
+      "t": 0.3852,
+      "text": "              can sign anything the client can."
+    },
+    {
+      "t": 0.3852,
+      "text": "    Expected: the server accepts the attacker, because to the server it is the client (attacker"
+    },
+    {
+      "t": 0.3852,
+      "text": "              Ok, server Ok)"
+    },
+    {
+      "t": 0.3852,
+      "text": "    Observed: attacker Ok, server Ok"
+    },
+    {
+      "t": 0.3852,
+      "text": "              the server authenticated the thief as the enrolled client"
+    },
+    {
+      "t": 0.3852,
+      "text": "    Verdict:  as expected"
+    },
+    {
+      "t": 0.3852,
+      "text": "    Note:     pqbind cannot help once a whole private key is stolen: whoever holds it is that"
+    },
+    {
+      "t": 0.3852,
+      "text": "              peer. This is outside its threat model (THREAT_MODEL.md, \"Compromise of a whole"
+    },
+    {
+      "t": 0.3852,
+      "text": "              private key\"), so the right answer here is that the attacker is accepted."
+    },
+    {
+      "t": 0.3852,
+      "text": ""
+    },
+    {
+      "t": 0.3891,
+      "text": "[f2] LIMIT: the whole server key and its TLS key are stolen"
+    },
+    {
+      "t": 0.3891,
+      "text": "    Story:    The attacker holds the server's TLS certificate key AND both halves of its hybrid"
+    },
+    {
+      "t": 0.3891,
+      "text": "              key, and answers the client the way the real server would."
+    },
+    {
+      "t": 0.3891,
+      "text": "    Expected: the client accepts the attacker, because it holds everything that proves the server"
+    },
+    {
+      "t": 0.3891,
+      "text": "              (client Ok, attacker Ok)"
+    },
+    {
+      "t": 0.3891,
+      "text": "    Observed: client Ok, attacker Ok"
+    },
+    {
+      "t": 0.3891,
+      "text": "              the client authenticated the thief as the pinned server"
+    },
+    {
+      "t": 0.3891,
+      "text": "    Verdict:  as expected"
+    },
+    {
+      "t": 0.3891,
+      "text": "    Note:     pqbind cannot help once a whole private key is stolen: whoever holds it is that"
+    },
+    {
+      "t": 0.3891,
+      "text": "              peer. This is outside its threat model (THREAT_MODEL.md, \"Compromise of a whole"
+    },
+    {
+      "t": 0.3891,
+      "text": "              private key\"), so the right answer here is that the attacker is accepted."
+    },
+    {
+      "t": 0.3891,
+      "text": ""
+    },
+    {
+      "t": 0.3892,
+      "text": "Summary (transport: quic)"
+    },
+    {
+      "t": 0.3892,
+      "text": "ID  Scenario                                                              Expected                                      Observed                                      Verdict"
+    },
+    {
+      "t": 0.3892,
+      "text": "a   Honest pair                                                           client Ok, server Ok                          client Ok, server Ok                          as expected"
+    },
+    {
+      "t": 0.3892,
+      "text": "b1  Classical break: an attacker impersonates the server                  client Err(ServerIdentity)                    client Err(ServerIdentity)                    as expected"
+    },
+    {
+      "t": 0.3892,
+      "text": "b2  Classical break: the attacker runs the real pqbind code               client Err(Refused), attacker Err(Refused)    client Err(Refused), attacker Err(Refused)    as expected"
+    },
+    {
+      "t": 0.3892,
+      "text": "c   Classical break: an attacker impersonates an enrolled client          server Err(Refused)                           server Err(Refused)                           as expected"
+    },
+    {
+      "t": 0.3893,
+      "text": "d   Relay: a man in the middle copies frames between two connections      client Err(Refused), server Err(Refused)      client Err(Refused), server Err(Refused)      as expected"
+    },
+    {
+      "t": 0.3893,
+      "text": "e   A client that was never enrolled                                      client Err(Refused), server Err(Refused)      client Err(Refused), server Err(Refused)      as expected"
+    },
+    {
+      "t": 0.3893,
+      "text": "f1  LIMIT: the whole client key is stolen                                 attacker Ok, server Ok                        attacker Ok, server Ok                        as expected"
+    },
+    {
+      "t": 0.3893,
+      "text": "f2  LIMIT: the whole server key and its TLS key are stolen                client Ok, attacker Ok                        client Ok, attacker Ok                        as expected"
+    },
+    {
+      "t": 0.3893,
+      "text": ""
+    },
+    {
+      "t": 0.3893,
+      "text": "All 8 scenarios behaved as expected."
+    }
+  ]
+}

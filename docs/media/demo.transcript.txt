@@ -1,0 +1,111 @@
+pqbind demo (transport: quic; everything stays on 127.0.0.1)
+
+A client and a server talk over a connection that already exists. After the transport handshake
+each signs the connection's own TLS exporter value, both transport identities and both key pins
+with a hybrid Ed25519 + ML-DSA-87 key. Assume a quantum attacker has broken everything
+classical: the TLS certificate key and the Ed25519 half of every pqbind key. The scenarios below
+run each attack for real and show what stops it, and the one thing that cannot be stopped.
+
+[a] Honest pair
+    Story:    A client and a server, each with its own hybrid key. The client has pinned the
+              server's key and the server has enrolled the client's key. No attacker is involved.
+    Expected: both ends complete the pqbind handshake over the real connection (client Ok, server
+              Ok)
+    Observed: client Ok, server Ok
+              server pin afad120dbad2f074 (pinned by the client, proved by the server)
+              client pin fe29c0c2347e4021 (enrolled by the server, proved by the client)
+              each end authenticated the key it expected: true
+    Verdict:  as expected
+
+[b1] Classical break: an attacker impersonates the server
+    Story:    The attacker holds the server's TLS certificate key (so the TLS handshake completes
+              and the client's certificate check passes) and the server's Ed25519 key, but NOT its
+              ML-DSA key. It answers the client's HELLO with the server's real public key and a
+              forged proof.
+    Expected: the client refuses the server: it cannot prove the pinned key (client
+              Err(ServerIdentity))
+    Observed: client Err(ServerIdentity)
+              the TLS handshake completed, so the transport alone would have trusted the attacker
+              the attacker sent the server's real public key and a proof with a forged ML-DSA half
+    Verdict:  as expected
+
+[b2] Classical break: the attacker runs the real pqbind code
+    Story:    Same attacker, same stolen TLS key, but now it runs the real pqbind accept code with
+              its own hybrid identity instead of forging a proof. The client's proof names the
+              pinned server key, which the attacker does not hold.
+    Expected: the client is refused: its proof does not verify for the attacker's key (client
+              Err(Refused), attacker Err(Refused))
+    Observed: client Err(Refused), attacker Err(Refused)
+              the attacker's own key has pin f8794f0d7b053465 and the client pinned
+              afad120dbad2f074
+    Verdict:  as expected
+
+[c] Classical break: an attacker impersonates an enrolled client
+    Story:    The attacker holds an enrolled client's Ed25519 key but NOT its ML-DSA key. It
+              connects to the real server and sends the client's real public key with a forged
+              proof.
+    Expected: the server refuses the attacker (server Err(Refused))
+    Observed: server Err(Refused)
+              the attacker sent the client's real public key and a proof with a forged ML-DSA half
+              the server answered with the single REFUSED frame
+    Verdict:  as expected
+
+[d] Relay: a man in the middle copies frames between two connections
+    Story:    The attacker holds the TLS key, so it terminates TLS for the client, opens its own
+              connection to the real server and copies the pqbind frames between them. The
+              client's proof was made over the exporter value of the first connection, which is
+              not the connection the server sees.
+    Expected: the server refuses the relayed proof, and the client is told it was refused (client
+              Err(Refused), server Err(Refused))
+    Observed: client Err(Refused), server Err(Refused)
+              both TLS legs completed; the relay never ran pqbind accept or connect
+              the relay forwarded frames
+              the relay copied the client's frame (7320 byte(s)) to the server and the server's
+              answer (1 byte(s)) back
+    Verdict:  as expected
+
+[e] A client that was never enrolled
+    Story:    A client with a perfectly valid hybrid key that the server has never enrolled. Its
+              proof is genuine, but the server only trusts keys it enrolled beforehand.
+    Expected: the server refuses it, with the same single answer it gives for every refusal
+              (client Err(Refused), server Err(Refused))
+    Observed: client Err(Refused), server Err(Refused)
+              the outsider's pin 741c8eb45e584dfd is not on the server's list
+    Verdict:  as expected
+
+[f1] LIMIT: the whole client key is stolen
+    Story:    The attacker holds BOTH halves of an enrolled client's key (the whole seed), so it
+              can sign anything the client can.
+    Expected: the server accepts the attacker, because to the server it is the client (attacker
+              Ok, server Ok)
+    Observed: attacker Ok, server Ok
+              the server authenticated the thief as the enrolled client
+    Verdict:  as expected
+    Note:     pqbind cannot help once a whole private key is stolen: whoever holds it is that
+              peer. This is outside its threat model (THREAT_MODEL.md, "Compromise of a whole
+              private key"), so the right answer here is that the attacker is accepted.
+
+[f2] LIMIT: the whole server key and its TLS key are stolen
+    Story:    The attacker holds the server's TLS certificate key AND both halves of its hybrid
+              key, and answers the client the way the real server would.
+    Expected: the client accepts the attacker, because it holds everything that proves the server
+              (client Ok, attacker Ok)
+    Observed: client Ok, attacker Ok
+              the client authenticated the thief as the pinned server
+    Verdict:  as expected
+    Note:     pqbind cannot help once a whole private key is stolen: whoever holds it is that
+              peer. This is outside its threat model (THREAT_MODEL.md, "Compromise of a whole
+              private key"), so the right answer here is that the attacker is accepted.
+
+Summary (transport: quic)
+ID  Scenario                                                              Expected                                      Observed                                      Verdict
+a   Honest pair                                                           client Ok, server Ok                          client Ok, server Ok                          as expected
+b1  Classical break: an attacker impersonates the server                  client Err(ServerIdentity)                    client Err(ServerIdentity)                    as expected
+b2  Classical break: the attacker runs the real pqbind code               client Err(Refused), attacker Err(Refused)    client Err(Refused), attacker Err(Refused)    as expected
+c   Classical break: an attacker impersonates an enrolled client          server Err(Refused)                           server Err(Refused)                           as expected
+d   Relay: a man in the middle copies frames between two connections      client Err(Refused), server Err(Refused)      client Err(Refused), server Err(Refused)      as expected
+e   A client that was never enrolled                                      client Err(Refused), server Err(Refused)      client Err(Refused), server Err(Refused)      as expected
+f1  LIMIT: the whole client key is stolen                                 attacker Ok, server Ok                        attacker Ok, server Ok                        as expected
+f2  LIMIT: the whole server key and its TLS key are stolen                client Ok, attacker Ok                        client Ok, attacker Ok                        as expected
+
+All 8 scenarios behaved as expected.
