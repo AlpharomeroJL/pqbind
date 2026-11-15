@@ -20,6 +20,7 @@ path = [
     "crates/pqbind/tests/vectors/**",
     "crates/pqbind-crypto/tests/vectors/hybrid_v1.json",
     "LICENSE",
+    "crates/*/LICENSE",
     "LICENSES/AGPL-3.0-only.txt",
     "LICENSES/LicenseRef-pqbind-Commercial.txt",
 ]
