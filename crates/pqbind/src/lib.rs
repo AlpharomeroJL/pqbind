@@ -22,8 +22,8 @@
 //!
 //! ```
 //! # fn main() {
-//! #     // The lattice signature code keeps large buffers on the stack, so run on a thread with a bigger one.
-//! #     std::thread::Builder::new().stack_size(64 * 1024 * 1024).spawn(run).unwrap().join().unwrap();
+//! #     // ML-DSA-87 key expansion needs about 1 MiB of stack in a debug build, so run on a thread with a few MiB.
+//! #     std::thread::Builder::new().stack_size(4 * 1024 * 1024).spawn(run).unwrap().join().unwrap();
 //! # }
 //! # fn run() {
 //! #     tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap().block_on(handshake()).unwrap();
@@ -71,7 +71,7 @@
 //!
 //! ```
 //! # fn main() {
-//! #     std::thread::Builder::new().stack_size(64 * 1024 * 1024).spawn(run).unwrap().join().unwrap();
+//! #     std::thread::Builder::new().stack_size(4 * 1024 * 1024).spawn(run).unwrap().join().unwrap();
 //! # }
 //! # fn run() {
 //! #     tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap().block_on(relay()).unwrap();
