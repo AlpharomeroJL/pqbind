@@ -11,12 +11,12 @@ concurrency:
   group: reuse-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Pin to full commit SHAs before publishing (TODO(owner)); version tags are used until then.
+# Actions are pinned to full commit SHAs; the comment after each one names the version it was resolved from.
 jobs:
   reuse:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: fsfe/reuse-action@v5
+      - uses: fsfe/reuse-action@bb774aa972c2a89ff34781233d275075cbddf542 # v5

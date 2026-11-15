@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-pqbind-Commercial
 # Copyright (c) 2026 VaultScribe Limited Liability Company
-"""Responsibility: a small stand-in for `reuse lint` when the reuse tool is not installed.
+"""Responsibility: a lightweight local equivalent of `reuse lint`, for machines that do not have the reuse tool installed.
 
 Checks that every file git knows (tracked, or untracked but not ignored) has an SPDX-License-Identifier line in its first 20
 lines, or is covered by an annotation in REUSE.toml, and that every license named exists under LICENSES/. Standard library only.
