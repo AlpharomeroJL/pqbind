@@ -6,8 +6,11 @@
 
 Break the classical key and you still can't get in.
 
+[![Crates.io](https://img.shields.io/crates/v/pqbind.svg)](https://crates.io/crates/pqbind)
+[![Docs.rs](https://img.shields.io/docsrs/pqbind)](https://docs.rs/pqbind)
+[![Downloads](https://img.shields.io/crates/d/pqbind.svg)](https://crates.io/crates/pqbind)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--only%20%7C%20commercial-1f6feb)](LICENSING.md)
-[![Rust](https://img.shields.io/badge/rust-1.94%2B-dea584)](Cargo.toml)
+[![MSRV](https://img.shields.io/crates/msrv/pqbind.svg)](Cargo.toml)
 [![Status](https://img.shields.io/badge/status-pre--1.0-d4a72c)](#security-model)
 
 <img src="docs/media/demo.gif" alt="pqbind demo: eight attack scenarios over a real QUIC connection" width="860">
@@ -68,11 +71,16 @@ works as a self-test. Add `--transport tls` for TLS over TCP.
 
 ## Use it in your project
 
-pqbind is not on crates.io yet. Depend on it from git and enable the adapter for your transport:
+Add the library from [crates.io](https://crates.io/crates/pqbind) and enable the adapter for your transport:
 
-```toml
-[dependencies]
-pqbind = { git = "https://github.com/AlpharomeroJL/pqbind", features = ["quinn"] }   # or "rustls", "iroh"
+```bash
+cargo add pqbind --features quinn   # or rustls, iroh
+```
+
+To get the command line tool:
+
+```bash
+cargo install pqbind-cli
 ```
 
 The handshake is generic over a frame channel, so you can try it without any transport. This runs as a doctest in

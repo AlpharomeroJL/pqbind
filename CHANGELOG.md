@@ -5,7 +5,9 @@ and the project intends to follow [Semantic Versioning](https://semver.org/) onc
 
 ## [Unreleased]
 
-pqbind has no release yet. The crates are marked `publish = false` and the version is `0.0.0`. Limitations are listed in
+## [0.1.0] - 2026-11-15
+
+First release, published to crates.io as `pqbind-crypto`, `pqbind` and `pqbind-cli`. Limitations are listed in
 [SECURITY.md](SECURITY.md).
 
 ### Added
