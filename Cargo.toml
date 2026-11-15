@@ -13,7 +13,7 @@ publish = false
 readme = "README.md"
 keywords = ["post-quantum", "ml-dsa", "hybrid-signature", "quic", "tls"]
 categories = ["cryptography"]
-# Verified: `cargo check --workspace --all-features --offline --locked` passes on Rust 1.94.1 and 1.99.0, the only stable toolchains
+# Verified: the full test suite passes on Rust 1.94.1, and `cargo check --workspace --all-features --offline --locked` on 1.94.1 and 1.99.0, the only stable toolchains
 # installed where this was checked. Older versions were not tried, so this is the lowest version known to work, not a proven floor.
 rust-version = "1.94"
 

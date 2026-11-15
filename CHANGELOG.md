@@ -21,5 +21,5 @@ Nothing is released or published yet. The crates are marked `publish = false`, a
 ### Known limits
 
 - The design has not been independently reviewed, and the `ml-dsa` crate it relies on has not been audited. See `SECURITY.md`.
-- Only Windows has been exercised so far. Linux and macOS are first run by the CI workflow.
-- The minimum supported Rust version is not determined.
+- The full test suite has run on Windows and on Ubuntu under WSL 2. macOS is only compile-checked. The CI workflows have not run.
+- The minimum supported Rust version is declared as 1.94 (tests pass on 1.94.1) but older versions were not tried.

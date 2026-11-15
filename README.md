@@ -190,14 +190,16 @@ FIPS validated. See [SECURITY.md](SECURITY.md).
 
 ## Known limitations
 
-- Only Windows has been tested. The Unix file-permission branch of `keygen` has never been run.
+- **Platforms.** The full test suite passes on Windows 11 and on Ubuntu under WSL 2 (209 tests each, on 2026-11-15, including the
+  QUIC, TLS and iroh connections on loopback and the Unix file-permission branch of `keygen`). macOS has only been compile-checked,
+  for `aarch64-apple-darwin` and `x86_64-apple-darwin`; the code has never run there. The CI workflows have never run.
 - The iroh adapter was exercised on direct IPv4 loopback only, not through relays or IPv6.
 - **Stack use of ML-DSA-87** (measured on Windows 11 with Rust 1.94.1, one operation alone on a fresh thread; the smallest stack that
   worked, found with `crates/pqbind-cli/examples/stack_probe.rs`): key expansion 960 KiB debug and 480 KiB release; signing 288 KiB
   debug and 144 KiB release; verifying 144 KiB debug and 80 KiB release. The cause is the `ml-dsa` crate's own buffers. The command
   line runs its commands on a 2 MiB thread and its async workers on 1.25 MiB. Other platforms were not measured.
-- The minimum supported Rust version is not proven. `Cargo.toml` declares 1.94, the lowest version checked, on the only two stable
-  toolchains the author had (1.94.1 and 1.99.0).
+- The minimum supported Rust version is not proven. `Cargo.toml` declares 1.94: the full test suite passes on Rust 1.94.1, and
+  `cargo check` passes on 1.99.0. Older versions were not tried.
 - `keygen` cannot restrict file permissions on Windows with the standard library alone; it says so, and you should restrict the seed
   file yourself.
 

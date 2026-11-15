@@ -173,9 +173,10 @@ These are the points the author is least sure of, roughly in order of importance
 - **No side-channel testing**, no constant-time analysis, and no analysis of memory exposure beyond the zeroizing types.
 - **Dependencies are not audited**, in particular `ml-dsa`. They are checked for license and advisories by `cargo deny`, not for
   correctness.
-- **Only Windows has been run by the author.** Linux and macOS are not claimed to work until a build has run there. The Unix
-  file-permission branch of `keygen` has never been run.
-- **No coverage-guided fuzzing.** Hostile input is covered by `proptest`, which is much weaker.
+- **Platforms.** The full test suite has run on Windows 11 and on Ubuntu under WSL 2. macOS was only compile-checked for both Apple
+  targets and has never run the code. The CI workflows have never run.
+- **Fuzzing was a smoke run.** Each of the five fuzz targets ran for 30 seconds on Windows without a sanitizer and found nothing.
+  That is far less than a real fuzzing campaign. `proptest` covers hostile input as well, and is much weaker.
 - **No interoperability testing.** There is one implementation, so the wire format has never been checked against another.
 - **iroh was exercised on direct IPv4 loopback only**, not through relays or over IPv6.
 - **Stack use was measured on Windows only** (key expansion 960 KiB debug, 480 KiB release; signing 288 and 144 KiB; verifying 144

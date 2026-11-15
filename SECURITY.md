@@ -21,7 +21,7 @@ cannot afford to lose.
 - `cargo clippy` over the whole workspace with all features: no errors, a few minor warnings in the command line crate.
 - Secret-bearing types wipe themselves on drop, and the tests check this at the type level for the parts that hold key material.
 
-What this does not cover: side channels, memory exposure outside what is wiped, platforms other than Windows, resistance to
+What this does not cover: side channels, memory exposure outside what is wiped, platforms other than Windows and Linux (macOS is only compile-checked), resistance to
 denial of service (a server verifies a well-formed HELLO before it knows the sender is enrolled, and pqbind has no rate limit), and
 the correctness of the design itself. [docs/REVIEW.md](docs/REVIEW.md) lists the questions an independent reviewer should answer. An earlier internal audit process existed, but its reports are not available, so none of its findings are claimed
 here.
