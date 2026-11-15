@@ -9,7 +9,13 @@ license = "AGPL-3.0-only"
 authors = ["VaultScribe Limited Liability Company"]
 # Not published yet. Remove this line only on purpose, when the first release is ready.
 publish = false
-# The minimum supported Rust version is not determined yet; the code has been tested on Rust 1.99 only.
+# TODO(owner): add `repository` and `homepage` once the public repository exists (cargo warns that they are missing).
+readme = "README.md"
+keywords = ["post-quantum", "ml-dsa", "hybrid-signature", "quic", "tls"]
+categories = ["cryptography"]
+# Verified: `cargo check --workspace --all-features --offline --locked` passes on Rust 1.94.1 and 1.99.0, the only stable toolchains
+# installed where this was checked. Older versions were not tried, so this is the lowest version known to work, not a proven floor.
+rust-version = "1.94"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -40,5 +46,5 @@ rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs"
 serde = { version = "1", default-features = false, features = ["derive", "std"] }
 serde_json = "1"
 
-pqbind-crypto = { path = "crates/pqbind-crypto" }
-pqbind = { path = "crates/pqbind" }
+pqbind-crypto = { path = "crates/pqbind-crypto", version = "0.0.0" }
+pqbind = { path = "crates/pqbind", version = "0.0.0" }

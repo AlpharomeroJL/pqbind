@@ -1,0 +1,52 @@
+# cargo-deny configuration (checked with cargo-deny 0.20.x). Run: cargo deny check
+
+[graph]
+all-features = true
+
+[advisories]
+# Fetches the RustSec advisory database. Unmaintained and yanked crates are reported too.
+yanked = "deny"
+# Each ignore needs a reason. Review these before every release.
+ignore = [
+    # `paste` is archived by its author (a compile-time macro crate, no runtime code). It comes in through iroh ->
+    # netwatch -> netdev -> netlink-packet-core, behind the optional `iroh` feature. No safe upgrade exists.
+    { id = "RUSTSEC-2024-0436", reason = "unmaintained build-time macro crate, pulled in by iroh's netlink dependencies" },
+]
+
+[licenses]
+confidence-threshold = 0.9
+allow = [
+    "AGPL-3.0-only", # the workspace crates themselves
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "CDLA-Permissive-2.0",
+]
+# The Unlicense is a public-domain dedication, not copyleft. Three websocket helper crates reached through
+# iroh -> iroh-relay -> ws_stream_wasm use it, so it is allowed for those crates only.
+exceptions = [
+    { allow = ["Unlicense"], crate = "async_io_stream" },
+    { allow = ["Unlicense"], crate = "pharos" },
+    { allow = ["Unlicense"], crate = "ws_stream_wasm" },
+]
+
+# The workspace crates carry AGPL-3.0-only in their metadata; the commercial option is named in the source headers.
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+deny = [
+    { crate = "openssl" },
+    { crate = "openssl-sys" },
+    { crate = "native-tls" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

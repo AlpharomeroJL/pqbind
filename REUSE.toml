@@ -1,0 +1,37 @@
+version = 1
+
+# Files that carry no SPDX header of their own. Source files have the header in the file.
+
+[[annotations]]
+path = [
+    ".gitattributes",
+    ".gitignore",
+    ".github/**",
+    "Cargo.toml",
+    "Cargo.lock",
+    "crates/*/Cargo.toml",
+    "rustfmt.toml",
+    "deny.toml",
+    "REUSE.toml",
+    "scripts/**",
+    "*.md",
+    "docs/**",
+    "fuzz/**",
+    "crates/pqbind/tests/vectors/**",
+    "crates/pqbind-crypto/tests/vectors/hybrid_v1.json",
+    "LICENSE",
+    "LICENSES/AGPL-3.0-only.txt",
+    "LICENSES/LicenseRef-pqbind-Commercial.txt",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 VaultScribe Limited Liability Company"
+SPDX-License-Identifier = "AGPL-3.0-only OR LicenseRef-pqbind-Commercial"
+
+# NIST ACVP known answers. The data comes from NIST's ACVP-Server repository, which states "The software developed by NIST
+# employees is not subject to copyright protection within the United States." It does not name CC0 or another SPDX license,
+# so this uses a LicenseRef pointing at NIST's notice, reproduced as published.
+[[annotations]]
+path = "crates/pqbind-crypto/tests/vectors/mldsa87_acvp.json"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "National Institute of Standards and Technology (ACVP-Server test data)"
+SPDX-License-Identifier = "LicenseRef-NIST-ACVP-Notice"
