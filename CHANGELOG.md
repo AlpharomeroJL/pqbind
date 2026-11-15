@@ -5,21 +5,17 @@ and the project intends to follow [Semantic Versioning](https://semver.org/) onc
 
 ## [Unreleased]
 
-Nothing is released or published yet. The crates are marked `publish = false`, and the version is `0.0.0`.
+pqbind has no release yet. The crates are marked `publish = false` and the version is `0.0.0`. Limitations are listed in
+[SECURITY.md](SECURITY.md).
 
 ### Added
 
-- `pqbind-crypto`: hybrid Ed25519 and ML-DSA-87 signatures, HKDF-SHA384, SHA-384, and secret types that wipe themselves on drop.
-  Checked against the NIST ACVP known answers for ML-DSA-87 key generation and deterministic signing.
-- `pqbind`: the core handshake that signs a connection's TLS exporter value with the hybrid key, with adapters for quinn, rustls
-  and iroh, each behind its own feature.
-- `pqbind-cli`: the `pqbind` command line, with an attack demo, a verifier and a post-quantum probe.
-- Attack, replay, relay, malformed-input and loopback transport tests.
-- Dual license: AGPL-3.0-only or a commercial license (see `LICENSING.md`).
-- Release tooling: a CI workflow for Windows, Linux and macOS, `cargo-deny` and REUSE checks, and local gate scripts in `scripts/`.
-
-### Known limits
-
-- The design has not been independently reviewed, and the `ml-dsa` crate it relies on has not been audited. See `SECURITY.md`.
-- The full test suite has run on Windows and on Ubuntu under WSL 2. macOS is only compile-checked. The CI workflows have not run.
-- The minimum supported Rust version is declared as 1.94 (tests pass on 1.94.1) but older versions were not tried.
+- `pqbind-crypto`: hybrid Ed25519 and ML-DSA-87 signatures from one 32-byte seed, HKDF-SHA384, SHA-384, and secret types that wipe
+  themselves on drop. ML-DSA-87 key generation and deterministic signing are checked against NIST ACVP known answers.
+- `pqbind`: the handshake that signs a connection's TLS exporter value with the hybrid key, with adapters for quinn, rustls (TLS 1.3
+  only) and iroh, each behind its own Cargo feature.
+- `pqbind-cli`: the `pqbind` command line with `demo` (eight attack scenarios over real connections), `keygen`, `serve`, `verify` and
+  `probe` (which key exchange groups a host accepts).
+- Tests for attacks, replay, relay, malformed input and loopback transports, and five cargo-fuzz targets.
+- A dual license: AGPL-3.0-only or a commercial license (see [LICENSING.md](LICENSING.md)).
+- CI for Windows, Linux and macOS, `cargo-deny` and REUSE checks, and the local check scripts in `scripts/`.

@@ -1,6 +1,6 @@
 # Licensing
 
-pqbind is available in two ways. You can use it under either one.
+pqbind is available under two licenses. You can use it under either one.
 
 ## 1. GNU Affero General Public License, version 3 (`AGPL-3.0-only`)
 
@@ -10,10 +10,10 @@ the license text before relying on this summary.
 
 ## 2. Commercial license
 
-If you want to use pqbind in a closed or proprietary product without publishing that product's source, you need a commercial
-license from **VaultScribe Limited Liability Company**. Terms are set by a written agreement.
+To use pqbind in a closed or proprietary product without publishing that product's source, you need a commercial license from
+**VaultScribe Limited Liability Company**. Terms are set by a written agreement.
 
-To ask about a commercial license, contact: josefdean@protonmail.com.
+To ask about a commercial license, contact josefdean@protonmail.com.
 
 ## Contributions
 
@@ -23,10 +23,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Third-party code
 
-pqbind depends on permissively licensed crates (MIT, Apache-2.0 and BSD-3-Clause), which are compatible with the AGPL. NIST ACVP
-test vectors used in the tests come from NIST's public ACVP data.
+pqbind depends on permissively licensed crates, which are compatible with the AGPL. `cargo deny` enforces the list of allowed
+licenses in `deny.toml`. The NIST ACVP test vectors used in the tests come from NIST's public ACVP data (see
+`LICENSES/LicenseRef-NIST-ACVP-Notice.txt`).
 
 ## Source files
 
-Each source file carries an SPDX identifier: `AGPL-3.0-only OR LicenseRef-pqbind-Commercial`. The text of the commercial reference
+Each source file carries the SPDX identifier `AGPL-3.0-only OR LicenseRef-pqbind-Commercial`. The text of the commercial reference
 is in `LICENSES/LicenseRef-pqbind-Commercial.txt`.
