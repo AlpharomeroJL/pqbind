@@ -80,19 +80,18 @@ pub fn load_roots(path: &Path) -> CliResult<RootCertStore> {
 #[cfg(test)]
 mod tests {
     use super::{Tls, load_roots};
+    use crate::testutil::TempDir;
 
     #[test]
     fn a_certificate_round_trips_through_its_pem_text() {
         let tls = Tls::generate().expect("certificate");
-        let dir = std::env::temp_dir().join(format!("pqbind-cert-test-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("directory");
-        let path = dir.join("cert.pem");
+        let dir = TempDir::new("cert-pem");
+        let path = dir.path().join("cert.pem");
         std::fs::write(&path, tls.pem()).expect("write");
         let roots = load_roots(&path).expect("roots");
         assert_eq!(roots.roots.len(), 1);
         std::fs::write(&path, "not a certificate").expect("write");
         assert!(load_roots(&path).is_err());
-        assert!(load_roots(&dir.join("missing.pem")).is_err());
-        let _ = std::fs::remove_dir_all(&dir);
+        assert!(load_roots(&dir.path().join("missing.pem")).is_err());
     }
 }

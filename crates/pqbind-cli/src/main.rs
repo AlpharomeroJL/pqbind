@@ -1,22 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-pqbind-Commercial
 // Copyright (c) 2026 VaultScribe Limited Liability Company
 
-//! Responsibility: Start the `pqbind` command line and dispatch to its subcommands: `demo`, `serve`, `verify`, `keygen` and `probe`.
+//! Responsibility: Start the `pqbind` command line: read the arguments and hand the chosen subcommand to the runtime.
 
-mod cert;
+mod commands;
 mod common;
-mod demo;
-mod keygen;
-mod net;
-mod probe;
-mod serve;
+mod keyfiles;
+mod runtime;
 #[cfg(test)]
 mod testutil;
-mod verify;
+mod transport;
 
 use std::process::ExitCode;
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
+
+use crate::commands::Command;
 
 /// Post-quantum authentication for connections that already exist.
 #[derive(Debug, Parser)]
@@ -26,65 +25,59 @@ struct Cli {
     command: Command,
 }
 
-#[derive(Debug, Subcommand)]
-enum Command {
-    /// Run the attack demonstration on 127.0.0.1 (also a self test: it exits 0 only if every scenario behaved as expected).
-    Demo(demo::Args),
-    /// Run a small pqbind server that greets enrolled clients.
-    Serve(serve::Args),
-    /// Connect to a pqbind server and check its proof against a pinned key.
-    Verify(verify::Args),
-    /// Make a new hybrid identity (seed file, optional public key file) and print its pin.
-    Keygen(keygen::Args),
-    /// Report which post-quantum key exchange groups a host accepts.
-    Probe(probe::Args),
-}
-
 fn main() -> ExitCode {
-    let cli = match Cli::try_parse() {
-        Ok(cli) => cli,
+    match Cli::try_parse() {
+        Ok(cli) => runtime::run(cli.command),
         Err(error) => {
             // `--help` and `--version` print to stdout and succeed; a usage error prints to stderr and exits 2.
             let _ = error.print();
-            return ExitCode::from(u8::try_from(error.exit_code()).unwrap_or(2));
-        }
-    };
-    // The lattice signature code keeps large buffers on the stack, and an unoptimized build keeps even more. The platform default for a
-    // main thread (1 MiB on Windows) is too small for it, so the command runs on a thread with a stack that is.
-    let spawned = std::thread::Builder::new().name("pqbind".to_owned()).stack_size(MAIN_STACK_BYTES).spawn(move || execute(cli.command));
-    match spawned {
-        Ok(handle) => handle.join().unwrap_or_else(|_| {
-            eprintln!("pqbind: the command stopped unexpectedly");
-            ExitCode::from(2)
-        }),
-        Err(error) => {
-            eprintln!("pqbind: cannot start the command thread: {error}");
-            ExitCode::from(2)
+            ExitCode::from(u8::try_from(error.exit_code()).unwrap_or(2))
         }
     }
 }
 
-/// The stack of the thread the command runs on.
-const MAIN_STACK_BYTES: usize = 64 * 1024 * 1024;
+#[cfg(test)]
+mod tests {
+    use clap::{CommandFactory, Parser};
 
-/// The stack of each runtime worker thread, which runs the tasks `serve` spawns.
-const WORKER_STACK_BYTES: usize = 32 * 1024 * 1024;
+    use super::Cli;
 
-fn execute(command: Command) -> ExitCode {
-    let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().thread_stack_size(WORKER_STACK_BYTES).build() {
-        Ok(runtime) => runtime,
-        Err(error) => {
-            eprintln!("pqbind: cannot start the async runtime: {error}");
-            return ExitCode::from(2);
+    #[test]
+    fn the_command_line_definition_is_consistent() {
+        Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn the_five_subcommands_are_the_ones_the_documentation_names() {
+        let command = Cli::command();
+        let names: Vec<&str> = command.get_subcommands().map(clap::Command::get_name).collect();
+        assert_eq!(names, ["demo", "serve", "verify", "keygen", "probe"]);
+    }
+
+    #[test]
+    fn every_documented_flag_still_parses() {
+        let lines: [&[&str]; 6] = [
+            &["pqbind", "demo"],
+            &["pqbind", "demo", "--transport", "tls"],
+            &["pqbind", "keygen", "--out", "client.seed", "--public-out", "client.pub"],
+            &["pqbind", "serve", "--listen", "127.0.0.1:4433", "--identity", "s.seed", "--enroll", "c.pub", "--cert-out", "s.pem"],
+            &["pqbind", "verify", "127.0.0.1:4433", "--pin", "ab", "--identity", "c.seed", "--ca", "s.pem", "--json"],
+            &["pqbind", "probe", "cloudflare.com", "google.com", "--json", "--timeout-ms", "250", "--sni", "a.example"],
+        ];
+        for line in lines {
+            assert!(Cli::try_parse_from(line).is_ok(), "{line:?}");
         }
-    };
-    runtime.block_on(async {
-        match command {
-            Command::Demo(args) => demo::run(args).await,
-            Command::Serve(args) => serve::run(args).await,
-            Command::Verify(args) => verify::run(args).await,
-            Command::Keygen(args) => keygen::run(&args),
-            Command::Probe(args) => probe::run(args).await,
+    }
+
+    #[test]
+    fn a_missing_or_unknown_argument_is_a_usage_error() {
+        for line in [
+            &["pqbind"][..],
+            &["pqbind", "nope"],
+            &["pqbind", "serve", "--listen", "127.0.0.1:1"],
+            &["pqbind", "demo", "--transport", "udp"],
+        ] {
+            assert!(Cli::try_parse_from(line).is_err(), "{line:?}");
         }
-    })
+    }
 }

@@ -1,29 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-pqbind-Commercial
 // Copyright (c) 2026 VaultScribe Limited Liability Company
 
-//! Responsibility: Run `pqbind serve`: a small pqbind server that authenticates enrolled clients, greets them with one line and closes.
+//! Responsibility: Run `pqbind serve`: read the arguments, start the server, print how to reach it and wait until the process is stopped.
 //!
 //! The server listens on a loopback address unless the user passes `--allow-non-loopback`, so it never opens a port to the network (and
-//! never triggers an operating system firewall prompt) by accident. A client that is refused just gets closed.
+//! never triggers an operating system firewall prompt) by accident.
+
+mod server;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
-use std::time::Duration;
 
-use pqbind::{Enrollment, Error, HybridIdentity, MemoryRegistry, PeerId, Pin, PublicIdentity};
+use crate::common::{CliError, CliResult, DEFAULT_APP_LABEL, Transport, label_bytes};
+use crate::keyfiles::{Permissions, load_or_create_identity, load_public};
+use crate::transport::Tls;
 
-use crate::cert::Tls;
-use crate::common::{CliError, CliResult, DEFAULT_APP_LABEL, Transport, label_bytes, now_millis, short_pin};
-use crate::keygen::{Permissions, load_or_create_identity, load_public};
-use crate::net::{Link, Listener, Pending};
-
-/// The longest one connection may take from arrival to close.
-const CONNECTION_LIMIT: Duration = Duration::from_secs(60);
-
-/// How long the server waits for the client to close after it was greeted.
-const LINGER: Duration = Duration::from_secs(5);
+pub use self::server::{Config, Log, Server, start};
 
 /// The arguments of `pqbind serve`.
 #[derive(Debug, clap::Args)]
@@ -71,125 +65,6 @@ pub fn check_loopback(addr: SocketAddr, allow_non_loopback: bool) -> CliResult<(
     )))
 }
 
-/// Everything a server needs to start.
-pub struct Config {
-    /// The transport to serve.
-    pub transport: Transport,
-    /// The address to listen on (already checked).
-    pub listen: SocketAddr,
-    /// The server's hybrid identity.
-    pub identity: HybridIdentity,
-    /// The clients to enroll, all for the anonymous transport identity.
-    pub enrolled: Vec<PublicIdentity>,
-    /// The server's TLS certificate and key.
-    pub tls: Tls,
-    /// The application label.
-    pub app_label: Vec<u8>,
-}
-
-/// Where a running server writes what happens.
-pub type Log = Arc<dyn Fn(String) + Send + Sync>;
-
-struct Shared {
-    identity: HybridIdentity,
-    own_id: PeerId,
-    registry: MemoryRegistry,
-    label: Vec<u8>,
-    log: Log,
-}
-
-/// A running server.
-pub struct Server {
-    addr: SocketAddr,
-    pin: Pin,
-    #[cfg_attr(not(test), allow(dead_code))]
-    cert_pem: String,
-    #[cfg_attr(not(test), allow(dead_code))]
-    task: tokio::task::JoinHandle<()>,
-}
-
-impl Server {
-    /// The address it listens on.
-    pub const fn addr(&self) -> SocketAddr {
-        self.addr
-    }
-
-    /// The pin of its hybrid key.
-    pub const fn pin(&self) -> &Pin {
-        &self.pin
-    }
-
-    /// Its TLS certificate as PEM, for a client's `--ca`.
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub fn cert_pem(&self) -> &str {
-        &self.cert_pem
-    }
-
-    /// Stop accepting connections.
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub fn shutdown(self) {
-        self.task.abort();
-    }
-}
-
-/// Start serving in the background.
-pub async fn start(config: Config, log: Log) -> CliResult<Server> {
-    let listener = Listener::bind(config.transport, &config.tls, config.listen).await?;
-    let addr = listener.local_addr()?;
-    let pin = config.identity.pin();
-    let cert_pem = config.tls.pem().to_owned();
-    let registry = MemoryRegistry::new();
-    for key in config.enrolled {
-        registry.enroll(Enrollment { key, peer_id: PeerId::anonymous(), enrolled_at_unix_millis: now_millis() });
-    }
-    let shared = Arc::new(Shared { identity: config.identity, own_id: config.tls.id(), registry, label: config.app_label, log });
-    let task = tokio::spawn(async move {
-        while let Some(pending) = listener.next().await {
-            let shared = Arc::clone(&shared);
-            tokio::spawn(async move {
-                let _ = tokio::time::timeout(CONNECTION_LIMIT, handle(pending, &shared)).await;
-            });
-        }
-    });
-    Ok(Server { addr, pin, cert_pem, task })
-}
-
-async fn handle(pending: Pending, shared: &Shared) {
-    let log = |line: String| (shared.log)(line);
-    let raw = match pending.complete().await {
-        Ok(raw) => raw,
-        Err(error) => return log(format!("a connection failed before pqbind started: {error}")),
-    };
-    let remote = raw.remote_text();
-    let link = match raw.server_frames(&shared.label).await {
-        Ok(link) => link,
-        Err(error) => return log(format!("{remote}: no pqbind handshake started ({error})")),
-    };
-    let Link { mut frames, peer, hold } = link;
-    let result = pqbind::accept(&mut frames, &shared.identity, &shared.own_id, &peer, &shared.registry).await;
-    let greeting = match &result {
-        Ok(established) => {
-            let who = short_pin(&established.peer_key().pin());
-            log(format!("{remote}: authenticated client {who}"));
-            Some(format!("pqbind: authenticated {who}"))
-        }
-        Err(Error::Refused) => {
-            log(format!("{remote}: refused (the client is not enrolled, or its proof did not verify)"));
-            None
-        }
-        Err(error) => {
-            log(format!("{remote}: handshake failed ({error})"));
-            None
-        }
-    };
-    let mut streams = frames.into_streams();
-    if let Some(line) = greeting {
-        let _ = streams.send_line(&line).await;
-    }
-    streams.finish().await;
-    hold.linger(LINGER).await;
-}
-
 /// Run `pqbind serve` until the process is stopped.
 pub async fn run(args: Args) -> ExitCode {
     match serve(args).await {
@@ -218,7 +93,12 @@ async fn serve(args: Args) -> CliResult<std::convert::Infallible> {
     let config = Config { transport: args.transport, listen, identity, enrolled, tls, app_label };
     let log: Log = Arc::new(|line| println!("  {line}"));
     let server = start(config, log).await?;
+    print_banner(&args, &server, created, enrolled_count);
+    std::future::pending().await
+}
 
+/// Say where the server listens, what it holds and how to verify it from another terminal.
+fn print_banner(args: &Args, server: &Server, created: Option<Permissions>, enrolled_count: usize) {
     println!("pqbind serve");
     println!("  transport:   {}", args.transport.name());
     println!("  listening:   {}", server.addr());
@@ -246,7 +126,6 @@ async fn serve(args: Args) -> CliResult<std::convert::Infallible> {
     );
     println!();
     println!("Waiting for connections. Stop with Ctrl+C.");
-    std::future::pending().await
 }
 
 const fn permissions_word(permissions: Permissions) -> &'static str {
@@ -258,7 +137,8 @@ const fn permissions_word(permissions: Permissions) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{check_loopback, parse_listen};
+    use super::{check_loopback, parse_listen, permissions_word};
+    use crate::keyfiles::Permissions;
 
     #[test]
     fn loopback_addresses_are_accepted_without_the_flag() {
@@ -283,5 +163,11 @@ mod tests {
         for text in ["localhost:4433", "4433", "127.0.0.1", ""] {
             assert!(parse_listen(text, true).is_err(), "{text:?}");
         }
+    }
+
+    #[test]
+    fn the_permissions_words_are_the_ones_the_banner_prints() {
+        assert_eq!(permissions_word(Permissions::OwnerOnly), "owner-only");
+        assert_eq!(permissions_word(Permissions::NotSet), "not restricted on this platform");
     }
 }

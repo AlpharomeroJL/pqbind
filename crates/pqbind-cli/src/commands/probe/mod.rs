@@ -17,6 +17,8 @@ mod report;
 mod target;
 
 #[cfg(test)]
+mod classify_tests;
+#[cfg(test)]
 mod tests;
 
 use std::process::ExitCode;

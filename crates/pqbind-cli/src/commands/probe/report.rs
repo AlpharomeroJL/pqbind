@@ -69,7 +69,7 @@ pub fn render_table(hosts: &[HostReport]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::probe::classify::{Outcome, ProbeGroup};
+    use crate::commands::probe::classify::{Outcome, ProbeGroup};
 
     fn sample() -> HostReport {
         let verdict = Verdict::PqIntolerant;

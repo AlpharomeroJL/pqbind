@@ -6,6 +6,10 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 publish.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+keywords = ["post-quantum", "quic", "tls", "cli", "probe"]
+categories = ["command-line-utilities", "cryptography"]
 
 [lints]
 workspace = true
@@ -13,6 +17,8 @@ workspace = true
 [[bin]]
 name = "pqbind"
 path = "src/main.rs"
+# The library crate is also named `pqbind`, and both would write the same rustdoc output file.
+doc = false
 
 [dependencies]
 pqbind = { workspace = true, features = ["quinn", "rustls"] }

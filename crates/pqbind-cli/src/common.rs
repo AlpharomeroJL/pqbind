@@ -88,7 +88,7 @@ pub fn to_hex(bytes: &[u8]) -> String {
 /// The bytes of hex text (either case, surrounding white space ignored), or `None` for an odd length or a character that is not a hex digit.
 pub fn from_hex(text: &str) -> Option<Vec<u8>> {
     let bytes = text.trim().as_bytes();
-    if bytes.len() % 2 != 0 {
+    if !bytes.len().is_multiple_of(2) {
         return None;
     }
     bytes
