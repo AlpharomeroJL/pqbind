@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-pqbind-Commercial
 // Copyright (c) 2026 VaultScribe Limited Liability Company
 
-//! Responsibility: List the subcommands of `pqbind` (`demo`, `serve`, `verify`, `keygen` and `probe`) and run the one the user chose.
+//! Responsibility: List the subcommands of `pqbind` (`demo`, `serve`, `verify`, `keygen`, `enroll` and `probe`) and run the one the user chose.
 
 pub mod demo;
+pub mod enroll;
 pub mod keygen;
 pub mod probe;
 pub mod serve;
@@ -24,6 +25,8 @@ pub enum Command {
     Verify(verify::Args),
     /// Make a new hybrid identity (seed file, optional public key file) and print its pin.
     Keygen(keygen::Args),
+    /// Manage the file of enrolled clients: add a key after checking its pin, list the clients, revoke one.
+    Enroll(enroll::Args),
     /// Report which post-quantum key exchange groups a host accepts.
     Probe(probe::Args),
 }
@@ -38,6 +41,7 @@ pub async fn run(command: Command) -> ExitCode {
         Command::Serve(args) => Box::pin(serve::run(args)).await,
         Command::Verify(args) => Box::pin(verify::run(args)).await,
         Command::Keygen(args) => keygen::run(&args),
+        Command::Enroll(args) => enroll::run(&args),
         Command::Probe(args) => Box::pin(probe::run(args)).await,
     }
 }
@@ -79,6 +83,7 @@ mod tests {
             listen: String::new(),
             identity: PathBuf::new(),
             enroll: Vec::new(),
+            registry: None,
             transport: Transport::Quic,
             cert_out: None,
             app_label: String::new(),

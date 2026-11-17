@@ -59,11 +59,11 @@ fn text(path: &Path) -> String {
 }
 
 #[test]
-fn help_lists_the_five_subcommands_and_exits_zero() {
+fn help_lists_the_six_subcommands_and_exits_zero() {
     let output = run(&["--help"]);
     assert_eq!(code(&output), 0);
     let help = stdout(&output);
-    for name in ["demo", "serve", "verify", "keygen", "probe"] {
+    for name in ["demo", "serve", "verify", "keygen", "enroll", "probe"] {
         assert!(help.contains(name), "{name} is missing from the help:\n{help}");
     }
 }
@@ -144,12 +144,17 @@ impl Drop for Server {
 
 /// Start `pqbind serve` on loopback port 0 and read its address and pin from what it prints.
 fn start_server(dir: &Dir, transport: &str, enroll: &Path) -> Server {
+    start_server_with(dir, transport, "--enroll", enroll)
+}
+
+/// Start `pqbind serve` with `flag` (`--enroll` or `--registry`) naming the file of enrolled clients.
+fn start_server_with(dir: &Dir, transport: &str, flag: &str, enrolled: &Path) -> Server {
     let mut child = pqbind()
         .args(["serve", "--listen", "127.0.0.1:0", "--transport", transport])
         .arg("--identity")
         .arg(dir.file(&format!("server-{transport}.seed")))
-        .arg("--enroll")
-        .arg(enroll)
+        .arg(flag)
+        .arg(enrolled)
         .arg("--cert-out")
         .arg(dir.file(&format!("server-{transport}.pem")))
         .stdout(Stdio::piped())
@@ -199,4 +204,68 @@ fn a_server_authenticates_an_enrolled_client_and_refuses_a_stranger_with_the_def
         assert_eq!(code(&bad), 1, "{transport}: {}{}", stdout(&bad), stderr(&bad));
         assert!(stdout(&bad).contains("\"result\":\"refused\""), "{transport}: {}", stdout(&bad));
     }
+}
+
+#[test]
+fn enroll_checks_the_pin_lists_and_revokes_through_the_real_binary() {
+    let dir = Dir::new("enroll-surface");
+    let (seed, public, registry) = (text(&dir.file("c.seed")), text(&dir.file("c.pub")), text(&dir.file("clients.reg")));
+    let made = run(&["keygen", "--out", &seed, "--public-out", &public]);
+    let pin = stdout(&made)
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("pin:").map(|rest| rest.trim().to_owned()))
+        .expect("keygen prints the pin");
+    assert_eq!(pin.len(), 96, "{pin}");
+
+    // Without a terminal and without a pin, nothing is enrolled.
+    let unchecked = run(&["enroll", "add", "--registry", &registry, "--key", &public]);
+    assert_eq!(code(&unchecked), 2);
+    assert!(stderr(&unchecked).contains("--pin"), "{}", stderr(&unchecked));
+    assert!(!dir.file("clients.reg").exists());
+
+    // A wrong pin is refused, and the right one enrolls.
+    let wrong = run(&["enroll", "add", "--registry", &registry, "--key", &public, "--pin", &"00".repeat(48)]);
+    assert_eq!(code(&wrong), 2);
+    assert!(stderr(&wrong).contains("does not match"), "{}", stderr(&wrong));
+    let added = run(&["enroll", "add", "--registry", &registry, "--key", &public, "--pin", &pin]);
+    assert_eq!(code(&added), 0, "{}", stderr(&added));
+    let listed = run(&["enroll", "list", "--registry", &registry]);
+    assert!(stdout(&listed).contains(&pin), "{}", stdout(&listed));
+
+    // A server that reads the registry authenticates the client over both transports.
+    let attempt = |server: &Server, transport: &str| {
+        let ca = text(&dir.file(&format!("server-{transport}.pem")));
+        run(&["verify", &server.listening, "--pin", &server.pin, "--identity", &seed, "--ca", &ca, "--transport", transport, "--json"])
+    };
+    for transport in ["quic", "tls"] {
+        let server = start_server_with(&dir, transport, "--registry", &dir.file("clients.reg"));
+        let good = attempt(&server, transport);
+        assert_eq!(code(&good), 0, "{transport}: {}{}", stdout(&good), stderr(&good));
+    }
+
+    // After the revoke, a server that is started again refuses the same client over both transports.
+    let revoked = run(&["enroll", "revoke", "--registry", &registry, "--pin", &pin[..24]]);
+    assert_eq!(code(&revoked), 0, "{}", stderr(&revoked));
+    assert!(stdout(&revoked).contains("restart"), "{}", stdout(&revoked));
+    let empty = run(&["enroll", "list", "--registry", &registry]);
+    assert!(stdout(&empty).contains("no clients"), "{}", stdout(&empty));
+    for transport in ["quic", "tls"] {
+        let server = start_server_with(&dir, transport, "--registry", &dir.file("clients.reg"));
+        let bad = attempt(&server, transport);
+        assert_eq!(code(&bad), 1, "{transport}: {}{}", stdout(&bad), stderr(&bad));
+        assert!(stdout(&bad).contains("\"result\":\"refused\""), "{transport}: {}", stdout(&bad));
+    }
+}
+
+#[test]
+fn serve_refuses_a_registry_that_is_missing_or_damaged_instead_of_starting_with_nobody_enrolled() {
+    let dir = Dir::new("serve-bad-registry");
+    let (identity, missing) = (text(&dir.file("s.seed")), text(&dir.file("none.reg")));
+    let output = run(&["serve", "--listen", "127.0.0.1:0", "--identity", &identity, "--registry", &missing]);
+    assert_eq!(code(&output), 2);
+    assert!(stderr(&output).contains("pqbind enroll add"), "{}", stderr(&output));
+    std::fs::write(dir.file("damaged.reg"), [1, 0, 0, 0, 9]).expect("write");
+    let damaged = run(&["serve", "--listen", "127.0.0.1:0", "--identity", &identity, "--registry", &text(&dir.file("damaged.reg"))]);
+    assert_eq!(code(&damaged), 2);
+    assert!(stderr(&damaged).contains("damaged"), "{}", stderr(&damaged));
 }

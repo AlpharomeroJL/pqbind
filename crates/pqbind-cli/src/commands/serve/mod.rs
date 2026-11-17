@@ -9,12 +9,15 @@
 mod server;
 
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 
+use pqbind::{PeerId, PublicIdentity};
+
 use crate::common::{CliError, CliResult, DEFAULT_APP_LABEL, Transport, label_bytes};
 use crate::keyfiles::{Permissions, load_or_create_identity, load_public};
+use crate::registry_file::load as load_registry;
 use crate::transport::Tls;
 
 pub use self::server::{Config, Log, Server, start};
@@ -28,9 +31,12 @@ pub struct Args {
     /// The server's seed file. It is created, like `keygen` does, when it does not exist.
     #[arg(long)]
     pub identity: PathBuf,
-    /// A client public key file to enroll (from `keygen --public-out`). Repeat the option for more clients.
-    #[arg(long, required = true)]
+    /// A client public key file to enroll (from `keygen --public-out`). Repeat the option for more clients. Give this, `--registry`, or both.
+    #[arg(long, required_unless_present = "registry")]
     pub enroll: Vec<PathBuf>,
+    /// A file of enrolled clients, made and kept with `pqbind enroll`. It is read once, when the server starts.
+    #[arg(long)]
+    pub registry: Option<PathBuf>,
     /// The transport to serve.
     #[arg(long, value_enum, default_value_t = Transport::Quic)]
     pub transport: Transport,
@@ -84,6 +90,9 @@ async fn serve(args: Args) -> CliResult<std::convert::Infallible> {
     for path in &args.enroll {
         enrolled.push(load_public(path)?);
     }
+    if let Some(path) = &args.registry {
+        enrolled.extend(registry_keys(path)?);
+    }
     let tls = Tls::generate()?;
     if let Some(path) = &args.cert_out {
         std::fs::write(path, tls.pem())
@@ -95,6 +104,23 @@ async fn serve(args: Args) -> CliResult<std::convert::Infallible> {
     let server = start(config, log).await?;
     print_banner(&args, &server, created, enrolled_count);
     std::future::pending().await
+}
+
+/// The keys in an enrolled-clients file. This server's clients present no transport identity, so a client enrolled from one is refused
+/// here with a message, not silently dropped.
+fn registry_keys(path: &Path) -> CliResult<Vec<PublicIdentity>> {
+    let mut keys = Vec::new();
+    for entry in load_registry(path)?.list() {
+        if entry.peer_id != PeerId::anonymous() {
+            return Err(CliError::new(format!(
+                "the registry file {} enrolls a client for a transport identity, which `pqbind serve` does not use; \
+                 enroll it with `pqbind enroll add`, which uses the anonymous identity",
+                path.display()
+            )));
+        }
+        keys.push(entry.key);
+    }
+    Ok(keys)
 }
 
 /// Say where the server listens, what it holds and how to verify it from another terminal.

@@ -6,6 +6,7 @@
 mod commands;
 mod common;
 mod keyfiles;
+mod registry_file;
 mod runtime;
 #[cfg(test)]
 mod testutil;
@@ -48,15 +49,20 @@ mod tests {
     }
 
     #[test]
-    fn the_five_subcommands_are_the_ones_the_documentation_names() {
+    fn the_six_subcommands_are_the_ones_the_documentation_names() {
         let command = Cli::command();
         let names: Vec<&str> = command.get_subcommands().map(clap::Command::get_name).collect();
-        assert_eq!(names, ["demo", "serve", "verify", "keygen", "probe"]);
+        assert_eq!(names, ["demo", "serve", "verify", "keygen", "enroll", "probe"]);
     }
 
     #[test]
     fn every_documented_flag_still_parses() {
-        let lines: [&[&str]; 6] = [
+        let lines: [&[&str]; 11] = [
+            &["pqbind", "enroll", "add", "--registry", "c.reg", "--key", "c.pub", "--pin", "ab"],
+            &["pqbind", "enroll", "add", "--registry", "c.reg", "--key", "c.pub"],
+            &["pqbind", "enroll", "list", "--registry", "c.reg"],
+            &["pqbind", "enroll", "revoke", "--registry", "c.reg", "--pin", "abcdef0123456789"],
+            &["pqbind", "serve", "--listen", "127.0.0.1:4433", "--identity", "s.seed", "--registry", "c.reg"],
             &["pqbind", "demo"],
             &["pqbind", "demo", "--transport", "tls"],
             &["pqbind", "keygen", "--out", "client.seed", "--public-out", "client.pub"],
