@@ -5,6 +5,15 @@ and the project intends to follow [Semantic Versioning](https://semver.org/) onc
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-17
+
+### Added
+
+- `pqbind enroll` with `add`, `list` and `revoke`, which keep the file of enrolled clients. `add` enrolls a key only after its pin is
+  confirmed: the `--pin` given must match the key, or a person types `yes` after reading the pin. It refuses when it cannot ask.
+- `pqbind serve --registry <file>` reads that file when the server starts. A missing or damaged file is an error, never an empty list.
+- A walkthrough of first contact in the README.
+
 ## [0.1.1] - 2026-11-15
 
 ### Changed
