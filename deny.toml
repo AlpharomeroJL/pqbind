@@ -11,6 +11,9 @@ ignore = [
     # `paste` is archived by its author (a compile-time macro crate, no runtime code). It comes in through iroh ->
     # netwatch -> netdev -> netlink-packet-core, behind the optional `iroh` feature. No safe upgrade exists.
     { id = "RUSTSEC-2024-0436", reason = "unmaintained build-time macro crate, pulled in by iroh's netlink dependencies" },
+    # `chrono` was marked unmaintained on 2026-11-17 (RUSTSEC-2026-0543, no vulnerability, no safe upgrade). It comes in through
+    # iroh -> netwatch -> wmi on Windows, behind the optional `iroh` feature. pqbind itself does not use it.
+    { id = "RUSTSEC-2026-0543", reason = "unmaintained notice only, no vulnerability; pulled in by iroh's Windows network watcher" },
 ]
 
 [licenses]
