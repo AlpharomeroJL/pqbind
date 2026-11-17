@@ -128,6 +128,7 @@ cargo run -p pqbind --example quinn_client_server --features quinn
 |---|---|
 | `pqbind demo` | Runs the eight attack scenarios above over QUIC or TLS |
 | `pqbind keygen` | Makes a hybrid identity (seed file and public key file) and prints its pin |
+| `pqbind enroll` | Keeps the file of enrolled clients: `add` a key after checking its pin, `list` the clients, `revoke` one |
 | `pqbind serve` | Runs a small pqbind server on loopback, with a list of enrolled clients |
 | `pqbind verify` | Connects to a pqbind server with a pinned key; exit 0 verified, 1 refused, 2 error |
 | `pqbind probe` | Reports which post-quantum key exchange groups a host accepts |
@@ -137,6 +138,30 @@ pqbind keygen --out client.seed --public-out client.pub
 pqbind serve  --listen 127.0.0.1:4433 --identity server.seed --enroll client.pub --cert-out server.pem
 pqbind verify 127.0.0.1:4433 --pin <the pin serve printed> --identity client.seed --ca server.pem
 ```
+
+### First contact: how a key becomes trusted
+
+pqbind never trusts a key because it arrived in a connection. Before the first connection, each side learns the other's key some
+other way, and you have to make sure it is the right one. The pin is the short check: the SHA-384 hash of a whole public key,
+which `keygen` prints.
+
+1. The client's owner runs `pqbind keygen` and sends you the public key file. They also tell you the pin, through a channel you
+   trust (in person, a phone call, a signed message), not the channel that carried the file.
+2. You enroll the key. The command refuses unless the pin you give matches the key:
+
+   ```bash
+   pqbind enroll add --registry clients.reg --key client.pub --pin <the pin the owner told you>
+   ```
+
+   Without `--pin` it prints the pin and asks you to type `yes`. When input is not a terminal it refuses, so a script can never
+   enroll a key unchecked.
+3. Start the server with the file: `pqbind serve --registry clients.reg ...`. The server reads it when it starts.
+4. To remove a client, run `pqbind enroll revoke --registry clients.reg --pin <pin or its first 16 digits>` and restart the server.
+   `pqbind enroll list --registry clients.reg` shows who is enrolled.
+
+The server's own pin goes the other way: the client keeps it and passes it to `verify --pin`. Delivering that pin is up to you in
+the same way. If a registry file is damaged or from another version, `serve` stops with an error instead of starting with nobody
+enrolled.
 
 `probe` tries one key exchange group at a time (X25519MLKEM768, SecP256r1MLKEM768, SecP384r1MLKEM1024, pure MLKEM1024 and two
 classical baselines) and gives a verdict per host. It does not validate certificates. A run on 2026-11-15:
