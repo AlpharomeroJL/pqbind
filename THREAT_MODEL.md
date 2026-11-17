@@ -28,7 +28,8 @@ demo.
 - **Compromise of a whole private key.** An attacker who holds both halves of a hybrid private key is that peer. Demo scenarios f1
   and f2 show this on purpose: the attacker is accepted.
 - **Enrollment and first contact.** The guarantee starts from keys that were enrolled or pinned beforehand. If the pin was delivered
-  over a channel an attacker controlled, nothing here helps.
+  over a channel an attacker controlled, nothing here helps. `pqbind enroll add` makes the check hard to skip, because it enrolls a
+  key only when the pin was confirmed, but it cannot tell whether the pin you confirmed against came from the right person.
 - **Confidentiality.** That is the job of the transport's key exchange. pqbind does not check that the transport negotiated a
   post-quantum key exchange; the application must configure one.
 - **Browsers and ordinary TLS clients.** Both ends must run pqbind.

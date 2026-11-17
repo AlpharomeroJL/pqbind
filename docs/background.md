@@ -68,8 +68,9 @@ demo includes them on purpose and counts them as passing only because the attack
 
 ## What it does not do
 
-- It does not enroll anyone. How a key becomes enrolled or pinned (a QR code, an administrator, a ticket) is outside the guarantee.
-  If the pin reached you over a channel an attacker controlled, nothing here helps.
+- It does not decide who to trust. The library enrolls no one, and `pqbind enroll` only records keys whose pin you confirmed. How a
+  key reaches you (a QR code, an administrator, a ticket) is outside the guarantee. If the pin reached you over a channel an attacker
+  controlled, nothing here helps.
 - It does not provide confidentiality. That is the transport's key exchange, and pqbind does not check that the transport
   negotiated a post-quantum one.
 - It needs pqbind at both ends, so it does not work for browsers or ordinary TLS clients, and it refuses TLS 1.2.

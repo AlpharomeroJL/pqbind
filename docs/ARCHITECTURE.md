@@ -141,7 +141,8 @@ pqbind trusts only what was set up beforehand, outside the connection:
   client checks the pin.
 
 How a key becomes enrolled or pinned is outside pqbind's guarantee. If the pin or the enrolled key came over a channel an attacker
-controlled, the guarantee does not hold.
+controlled, the guarantee does not hold. The command line helps with the bookkeeping, not with that delivery: `pqbind enroll add`
+refuses a key unless its pin was confirmed, and keeps the list in a file that `serve --registry` reads.
 
 ## Module map
 
@@ -187,14 +188,16 @@ for.
 
 | File | Lines | What it does |
 |---|---:|---|
-| `src/main.rs` | 83 | Parses the arguments and hands the chosen subcommand to the runtime. |
+| `src/main.rs` | 89 | Parses the arguments and hands the chosen subcommand to the runtime. |
 | `src/runtime.rs` | 116 | Starts the thread (2 MiB stack) and async runtime a command runs on. |
 | `src/common.rs` | 147 | The shared error type, the transport choice, hex and pin helpers, the default application label. |
 | `src/keyfiles.rs` | 167 | Seed and public key files: never overwrites, restricts a secret file where the platform allows. |
+| `src/registry_file.rs` | 123 | The enrolled-clients file: replaced in one step, and a damaged file is an error, never an empty list. |
 | `src/testutil.rs` | 36 | Test-only temporary directory. |
-| `src/commands/mod.rs` | 93 | Lists the subcommands and runs the chosen one. |
+| `src/commands/mod.rs` | 98 | Lists the subcommands and runs the chosen one. |
 | `src/commands/keygen.rs` | 116 | `keygen`: makes a hybrid identity, writes its files and prints its pin. |
-| `src/commands/serve/mod.rs`, `server.rs` | 173, 141 | `serve`: a small server that authenticates enrolled clients and greets them. |
+| `src/commands/enroll.rs` | 294 | `enroll`: `add` a client key after its pin is confirmed, `list` the clients, `revoke` one by pin. |
+| `src/commands/serve/mod.rs`, `server.rs` | 199, 141 | `serve`: a small server that authenticates enrolled clients, from `--enroll` key files or a `--registry` file, and greets them. |
 | `src/commands/verify/mod.rs`, `report.rs`, `target.rs`, `tests.rs` | 126, 170, 65, 136 | `verify`: connects as a client, checks the server's proof against a pin, reports text or JSON. |
 | `src/commands/demo/mod.rs`, `scenarios.rs`, `attackers.rs`, `cast.rs`, `ends.rs`, `report.rs`, `runner.rs`, `print.rs`, `tests.rs` | 58, 247, 170, 48, 49, 207, 22, 102, 63 | `demo`: the eight scenarios, the attackers they use, and the report. |
 | `src/commands/probe/mod.rs`, `attempt.rs`, `classify.rs`, `kx.rs`, `report.rs`, `target.rs`, `classify_tests.rs`, `tests.rs` | 136, 177, 316, 123, 140, 180, 231, 254 | `probe`: one handshake per key exchange group, including `SecP384r1MLKEM1024`, which rustls does not ship. |
@@ -216,5 +219,5 @@ for.
 | `crates/pqbind/tests/iroh_adapter.rs` | 170 | The whole handshake over real iroh connections on loopback. |
 | `crates/pqbind/tests/known_answers.rs` | 775 | Fixed-byte vectors for the proof layout and the handshake frames. |
 | `crates/pqbind/tests/common/mod.rs` | 384 | Shared helpers for the integration tests. |
-| `crates/pqbind-cli/tests/cli_surface.rs` | 202 | Runs the real binary and checks help, exit codes, key files, the demo, and a server with a client. |
+| `crates/pqbind-cli/tests/cli_surface.rs` | 271 | Runs the real binary and checks help, exit codes, key files, enrollment and revocation, the demo, and a server with a client. |
 | `fuzz/fuzz_targets/*.rs`, `fuzz/src/lib.rs` | 22 to 67 each, 126 | Five cargo-fuzz targets and their shared helpers (see [fuzz/README.md](../fuzz/README.md)). |
